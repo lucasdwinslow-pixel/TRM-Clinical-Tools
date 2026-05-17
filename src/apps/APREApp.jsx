@@ -1,869 +1,914 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useEffect } from 'react';
+import QRCode from 'qrcode';
 
-// ─── THEME CONSTANTS ────────────────────────────────────────────────────────
-const LIME = "#b8ff57";
-const LIME_DIM = "#8ed43c";
-const BLACK = "#0a0a0a";
-const DARK = "#111111";
-const CARD = "#181818";
-const BORDER = "#2a2a2a";
-const MUTED = "#555555";
-const WHITE = "#ffffff";
-const GOLD = "#fbbf24";
-const RED_BAD = "#f87171";
-const BLUE = "#38bdf8";
+// ── APP URL ───────────────────────────────────────────────────────────────────
+var APP_URL = '';
 
-// ─── VIEWPORT + GLOBAL STYLES ───────────────────────────────────────────────
-if (typeof document !== "undefined" && !document.getElementById("trm-apre-styles")) {
-  if (!document.querySelector('meta[name="viewport"]')) {
-    const meta = document.createElement("meta");
-    meta.name = "viewport";
-    meta.content = "width=device-width, initial-scale=1, maximum-scale=1";
-    document.head.appendChild(meta);
-  }
-  const s = document.createElement("style");
-  s.id = "trm-apre-styles";
-  s.textContent = `
-    html, body { overscroll-behavior-y: none; }
-    input[type="number"] { font-size: 16px !important; min-height: 44px !important; }
-    @media (max-width: 700px) {
-      .apre-grid2 { grid-template-columns: 1fr !important; }
-      .apre-fab { bottom: 16px !important; right: 12px !important; }
-      .apre-fab button { padding: 10px 12px !important; font-size: 11px !important; min-height: 44px; }
-    }
-  `;
-  document.head.appendChild(s);
-}
-
-// ─── PROTOCOL DATA ──────────────────────────────────────────────────────────
-const PROTO = {
-  "APRE 10": {
-    id: "10", label: "APRE 10 — Muscular Endurance",
-    desc: "10RM protocol — hypertrophy / endurance emphasis. Ideal for early-phase rehab, muscle activation, and tissue tolerance building.",
-    sets: [
-      { label: "Set 1 — Warm-Up", pct: 50, reps: 12 },
-      { label: "Set 2 — Light Load", pct: 75, reps: 10 },
-      { label: "Set 3 — Working Set", pct: 100, reps: "AMRAP" },
-      { label: "Set 4 — Adjusted", pct: null, reps: "AMRAP" },
+// ── DATA ──────────────────────────────────────────────────────────────────────
+var PROTO = {
+  apre10:{name:"APRE 10",phase:"Hypertrophy / Tissue Loading",wk:"Weeks 6-10 post-op",s1r:10,s2r:10,
+    s3:[{x:6,l:"<=6",d:[-10,-5],z:"dn"},{x:8,l:"7-8",d:[-5,0],z:"dn"},{x:11,l:"9-11",d:[0,0],z:"sa"},{x:13,l:"12-13",d:[5,10],z:"up"},{x:999,l:">=14",d:[10,15],z:"up"}],
+    s4:[{x:6,l:"<=6",n:[-10,-5],z:"dn"},{x:8,l:"7-8",n:[-5,0],z:"dn"},{x:11,l:"9-11",n:[0,0],z:"sa"},{x:13,l:"12-13",n:[5,10],z:"up"},{x:999,l:">=14",n:[10,15],z:"up"}],
+    w2p:0.65,w3p:0.68,w2s:"2 x 10",w3s:"3 x 8",w3t:"(0-2-5-2) Tempo",
+    w2companions:[
+      {name:"Terminal Knee Extension",detail:"3 x 15 each · VMO activation · band at knee · full terminal extension",load:"Light band",pct:null},
+      {name:"Hip Thrust",detail:"3 x 12 · bilateral · drive through heels · 2-sec hold at top",load:null,pct:0.30,base:"lp"},
+      {name:"Side-lying Hip Abduction",detail:"3 x 15 each · slow and controlled · no trunk rotation",load:"Bodyweight",pct:null},
+      {name:"Standing Calf Raise",detail:"3 x 15 · full range · 3-sec eccentric lower · ankle stability",load:"Bodyweight",pct:null}
     ],
-    adj3: [
-      { range: "0–2 reps", action: "Decrease 5–10 lbs", color: RED_BAD },
-      { range: "3–4 reps", action: "Decrease 0–5 lbs", color: GOLD },
-      { range: "5–6 reps", action: "Keep same weight", color: LIME },
-      { range: "7–8 reps", action: "Keep same weight", color: LIME },
-      { range: "9–11 reps", action: "Increase 0–5 lbs", color: GOLD },
-      { range: "12–16 reps", action: "Increase 5–10 lbs", color: BLUE },
-      { range: "17+ reps", action: "Increase 10–15 lbs", color: BLUE },
+    w3companions:[
+      {name:"Romanian Deadlift",detail:"3 x 10 · hip hinge · neutral spine · hamstring stretch at bottom",load:null,pct:0.25,base:"lp"},
+      {name:"Band Hip Abduction",detail:"3 x 15 each direction · upright posture · frontal plane control",load:"Light band",pct:null},
+      {name:"Single-leg Balance",detail:"3 x 30s each · slight knee bend · progress to eyes closed",load:"Bodyweight",pct:null},
+      {name:"Seated Calf Raise",detail:"3 x 15 · soleus focus · reduces knee joint stress · full ROM",load:"Bodyweight",pct:null}
+    ]},
+  apre6:{name:"APRE 6",phase:"Strength Development",wk:"Weeks 10-16 post-op",s1r:6,s2r:6,
+    s3:[{x:2,l:"0-2",d:[-10,-5],z:"dn"},{x:4,l:"3-4",d:[-5,0],z:"dn"},{x:7,l:"5-7",d:[0,0],z:"sa"},{x:9,l:"8-9",d:[5,10],z:"up"},{x:999,l:">=10",d:[10,15],z:"up"}],
+    s4:[{x:2,l:"0-2",n:[-10,-5],z:"dn"},{x:4,l:"3-4",n:[-5,0],z:"dn"},{x:7,l:"5-7",n:[0,0],z:"sa"},{x:9,l:"8-9",n:[5,10],z:"up"},{x:999,l:">=10",n:[10,15],z:"up"}],
+    w2p:0.75,w3p:0.80,w2s:"3 x 5",w3s:"4 x 4",w3t:"Controlled eccentric",
+    w2companions:[
+      {name:"Goblet Squat",detail:"3 x 8 · 3-sec eccentric · chest tall · knee tracking over 2nd toe",load:null,pct:0.30,base:"ke"},
+      {name:"Nordic Hamstring Curl",detail:"3 x 6 · slow eccentric only · partner or anchor · do not hyperextend",load:"Bodyweight",pct:null},
+      {name:"Forward Step-Up",detail:"3 x 10 each · drive through heel · full hip extension at top",load:"Bodyweight",pct:null},
+      {name:"Copenhagen Adductor",detail:"3 x 8 each · side-plank position · inner thigh · no trunk drop",load:"Bodyweight",pct:null}
     ],
-    adj4: [
-      { range: "0–2 reps", action: "Decrease 5–10 lbs next session", color: RED_BAD },
-      { range: "3–4 reps", action: "Decrease 0–5 lbs next session", color: GOLD },
-      { range: "5–6 reps", action: "Keep same weight next session", color: LIME },
-      { range: "7–8 reps", action: "Keep same weight next session", color: LIME },
-      { range: "9–11 reps", action: "Increase 0–5 lbs next session", color: GOLD },
-      { range: "12–16 reps", action: "Increase 5–10 lbs next session", color: BLUE },
-      { range: "17+ reps", action: "Increase 10–15 lbs next session", color: BLUE },
+    w3companions:[
+      {name:"Bulgarian Split Squat",detail:"3 x 8 each · rear foot elevated · upright torso · knee over toe",load:null,pct:0.25,base:"ke"},
+      {name:"Romanian Deadlift",detail:"3 x 10 · hip hinge · neutral spine · bilateral",load:null,pct:0.30,base:"lp"},
+      {name:"Lateral Band Walk",detail:"3 x 15 each direction · medium band · mini-squat position · no trunk sway",load:"Med band",pct:null},
+      {name:"Single-leg Balance (Eyes Closed)",detail:"3 x 30s each · slight knee bend · proprioceptive progression",load:"Bodyweight",pct:null}
+    ]},
+  apre3:{name:"APRE 3",phase:"Max Strength / Power Foundation",wk:"Weeks 16+ / Pre-RTS",s1r:5,s2r:3,
+    s3:[{x:1,l:"0-1",d:[-10,-5],z:"dn"},{x:3,l:"2-3",d:[0,0],z:"sa"},{x:5,l:"4-5",d:[5,10],z:"up"},{x:999,l:">=6",d:[10,15],z:"up"}],
+    s4:[{x:1,l:"0-1",n:[-10,-5],z:"dn"},{x:3,l:"2-3",n:[0,0],z:"sa"},{x:5,l:"4-5",n:[5,10],z:"up"},{x:999,l:">=6",n:[10,15],z:"up"}],
+    w2p:0.85,w3p:0.90,w2s:"3 x 3",w3s:"5 x 3",w3t:"Max intent / explosive",
+    w2companions:[
+      {name:"Trap Bar Deadlift",detail:"4 x 4 · max intent · explosive drive · neutral spine · full hip extension",load:null,pct:0.50,base:"lp"},
+      {name:"Nordic Hamstring Curl",detail:"4 x 5 · max eccentric · partner or anchor · 4-sec lower phase",load:"Bodyweight",pct:null},
+      {name:"Single-leg Press",detail:"3 x 6 each · full extension · controlled return · 2-sec eccentric",load:null,pct:0.55,base:"lp"},
+      {name:"Bilateral Depth Drop",detail:"3 x 8 · step off 20-30cm box · land softly · absorb at hip and knee",load:"Bodyweight",pct:null}
     ],
-  },
-  "APRE 6": {
-    id: "6", label: "APRE 6 — Strength / Hypertrophy",
-    desc: "6RM protocol — balanced strength and hypertrophy. The most commonly used APRE protocol in rehab settings.",
-    sets: [
-      { label: "Set 1 — Warm-Up", pct: 50, reps: 10 },
-      { label: "Set 2 — Moderate", pct: 75, reps: 6 },
-      { label: "Set 3 — Working Set", pct: 100, reps: "AMRAP" },
-      { label: "Set 4 — Adjusted", pct: null, reps: "AMRAP" },
-    ],
-    adj3: [
-      { range: "0–2 reps", action: "Decrease 5–10 lbs", color: RED_BAD },
-      { range: "3–4 reps", action: "Decrease 0–5 lbs", color: GOLD },
-      { range: "5–7 reps", action: "Keep same weight", color: LIME },
-      { range: "8–12 reps", action: "Increase 5–10 lbs", color: BLUE },
-      { range: "13+ reps", action: "Increase 10–15 lbs", color: BLUE },
-    ],
-    adj4: [
-      { range: "0–2 reps", action: "Decrease 5–10 lbs next session", color: RED_BAD },
-      { range: "3–4 reps", action: "Decrease 0–5 lbs next session", color: GOLD },
-      { range: "5–7 reps", action: "Keep same weight next session", color: LIME },
-      { range: "8–12 reps", action: "Increase 5–10 lbs next session", color: BLUE },
-      { range: "13+ reps", action: "Increase 10–15 lbs next session", color: BLUE },
-    ],
-  },
-  "APRE 3": {
-    id: "3", label: "APRE 3 — Max Strength / Power",
-    desc: "3RM protocol — max strength emphasis. For late-stage rehab, return-to-sport strength targets, and peaking phases.",
-    sets: [
-      { label: "Set 1 — Warm-Up", pct: 50, reps: 6 },
-      { label: "Set 2 — Moderate", pct: 75, reps: 3 },
-      { label: "Set 3 — Working Set", pct: 100, reps: "AMRAP" },
-      { label: "Set 4 — Adjusted", pct: null, reps: "AMRAP" },
-    ],
-    adj3: [
-      { range: "1–2 reps", action: "Decrease 5–10 lbs", color: RED_BAD },
-      { range: "3–4 reps", action: "Keep same weight", color: LIME },
-      { range: "5–6 reps", action: "Increase 5–10 lbs", color: BLUE },
-      { range: "7+ reps", action: "Increase 10–15 lbs", color: BLUE },
-    ],
-    adj4: [
-      { range: "1–2 reps", action: "Decrease 5–10 lbs next session", color: RED_BAD },
-      { range: "3–4 reps", action: "Keep same weight next session", color: LIME },
-      { range: "5–6 reps", action: "Increase 5–10 lbs next session", color: BLUE },
-      { range: "7+ reps", action: "Increase 10–15 lbs next session", color: BLUE },
-    ],
-  },
+    w3companions:[
+      {name:"Bulgarian Split Squat",detail:"4 x 4 each · rear foot elevated · heavy load · max strength intent",load:null,pct:0.40,base:"ke"},
+      {name:"Single-leg RDL",detail:"3 x 8 each · reach opposite hand · hamstring focus · control the descent",load:null,pct:0.20,base:"lp"},
+      {name:"Lateral Bound",detail:"3 x 6 each direction · stick the landing · 2-sec pause · frontal plane power",load:"Bodyweight",pct:null},
+      {name:"Reactive Step-Up",detail:"3 x 8 each · quick ground contact · drive knee up · sport-prep RFD",load:"Bodyweight",pct:null}
+    ]}
 };
 
-// ─── PROGRESSION TIMELINE ───────────────────────────────────────────────────
-const TIMELINE = [
-  { phase: "Phase 1", wks: "Weeks 1–2", proto: "APRE 10", focus: "Tissue tolerance, activation, motor pattern re-education", color: LIME },
-  { phase: "Phase 2", wks: "Weeks 3–4", proto: "APRE 10", focus: "Endurance base, load capacity building", color: LIME },
-  { phase: "Phase 3", wks: "Weeks 5–6", proto: "APRE 6", focus: "Transition to strength emphasis, cross-sectional area", color: GOLD },
-  { phase: "Phase 4", wks: "Weeks 7–8", proto: "APRE 6", focus: "Strength building, progressive overload", color: GOLD },
-  { phase: "Phase 5", wks: "Weeks 9–10", proto: "APRE 3", focus: "Max strength, neuromuscular recruitment", color: BLUE },
-  { phase: "Phase 6", wks: "Weeks 11–12", proto: "APRE 3", focus: "Peaking phase — return-to-sport capacity", color: BLUE },
+var TL = [
+  {l:"Phase 1",w:"Wks 0-6",c:"#444",items:["ROM restoration","Quad activation","NMES","Gait training"],note:"APRE not yet indicated. Focus on swelling control and neuromuscular re-education."},
+  {l:"APRE 10",w:"Wks 6-10",c:"#b8ff57",items:["10RM protocol","Limited-arc KE","SL Leg Press","Volume focus"],note:"Autoregulate each session. Goal is tissue tolerance and hypertrophy before advancing."},
+  {l:"APRE 6",w:"Wks 10-16",c:"#fbbf24",items:["6RM protocol","Full ROM KE","Bilateral squat","Hip & hamstring"],note:"Graft maturation supports heavier loading. Shift from volume to intensity."},
+  {l:"APRE 3",w:"Wks 16+",c:"#f87171",items:["3RM protocol","Heavy unilateral","Rate of force dev","Plyo bridge"],note:"Final strength phase before RTS. Pair with plyometric program and formal testing."},
+  {l:"RTS Criteria",w:"9-12 mo",c:"#a78bfa",items:["LSI >=90%","Hop battery","Force plate","Sport-specific"],note:"Strength is one criterion. Full RTS battery including psychological readiness required."}
 ];
 
-// ─── CALCULATION HELPERS ────────────────────────────────────────────────────
-const r5 = (v) => Math.round(v / 5) * 5;
-const epley = (w, r) => (r <= 1) ? w : r5(w * (1 + r / 30));
-
-function adjSet4(proto, reps3, wt3) {
-  const n = parseInt(reps3);
-  if (isNaN(n) || n < 0) return wt3;
-  if (proto === "APRE 10") {
-    if (n <= 2) return r5(wt3 - 10);
-    if (n <= 4) return r5(wt3 - 5);
-    if (n <= 8) return wt3;
-    if (n <= 11) return r5(wt3 + 5);
-    if (n <= 16) return r5(wt3 + 10);
-    return r5(wt3 + 15);
-  }
-  if (proto === "APRE 6") {
-    if (n <= 2) return r5(wt3 - 10);
-    if (n <= 4) return r5(wt3 - 5);
-    if (n <= 7) return wt3;
-    if (n <= 12) return r5(wt3 + 10);
-    return r5(wt3 + 15);
-  }
-  // APRE 3
-  if (n <= 2) return r5(wt3 - 10);
-  if (n <= 4) return wt3;
-  if (n <= 6) return r5(wt3 + 10);
-  return r5(wt3 + 15);
-}
-
-function nextSession(proto, reps4, wt4) {
-  const n = parseInt(reps4);
-  if (isNaN(n) || n < 0) return wt4;
-  if (proto === "APRE 10") {
-    if (n <= 2) return r5(wt4 - 10);
-    if (n <= 4) return r5(wt4 - 5);
-    if (n <= 8) return wt4;
-    if (n <= 11) return r5(wt4 + 5);
-    if (n <= 16) return r5(wt4 + 10);
-    return r5(wt4 + 15);
-  }
-  if (proto === "APRE 6") {
-    if (n <= 2) return r5(wt4 - 10);
-    if (n <= 4) return r5(wt4 - 5);
-    if (n <= 7) return wt4;
-    if (n <= 12) return r5(wt4 + 10);
-    return r5(wt4 + 15);
-  }
-  // APRE 3
-  if (n <= 2) return r5(wt4 - 10);
-  if (n <= 4) return wt4;
-  if (n <= 6) return r5(wt4 + 10);
-  return r5(wt4 + 15);
-}
-
-// ─── STYLE HELPERS ──────────────────────────────────────────────────────────
-const inp = {
-  background: "#1c1c1c", border: `1px solid #2e2e2e`, borderRadius: 6,
-  padding: "10px 14px", color: WHITE, fontSize: 16, width: "100%",
-  outline: "none", fontFamily: "inherit", boxSizing: "border-box",
-  textAlign: "center", minHeight: 44,
+// ── MODULE STATE ──────────────────────────────────────────────────────────────
+var proto = "apre10";
+var S = {
+  ke:{ww:null,s3r:null,s4r:null,s4w:null,rm:null,nextw:null},
+  lp:{ww:null,s3r:null,s4r:null,s4w:null,rm:null,nextw:null}
+};
+var SESSION = {
+  currentWeek:1, patCode:"",
+  hist_ke:[null,null,null,null,null,null],
+  hist_lp:[null,null,null,null,null,null],
+  prevKEw:null, prevLPw:null, loadedFromQR:false
 };
 
-const lbl = {
-  display: "block", fontSize: 10, fontWeight: 800, letterSpacing: "0.12em",
-  color: MUTED, textTransform: "uppercase", marginBottom: 4,
-};
-
-// ─── CARD COMPONENT ─────────────────────────────────────────────────────────
-function Card({ title, accent, children }) {
-  const borderColor = accent ? LIME + "44" : BORDER;
-  const headerBg = accent ? `linear-gradient(90deg,${LIME}18,transparent)` : "#161616";
-  const barColor = accent ? LIME : "#444";
-  const titleColor = accent ? LIME : "#888";
-  return (
-    <div style={{ background: CARD, borderRadius: 12, marginBottom: 20, overflow: "hidden", border: `1px solid ${borderColor}`, boxShadow: accent ? `0 0 24px ${LIME}18` : "0 2px 12px rgba(0,0,0,0.4)" }}>
-      <div style={{ padding: "12px 20px", background: headerBg, borderBottom: `1px solid ${accent ? LIME + "33" : BORDER}`, display: "flex", alignItems: "center", gap: 10 }}>
-        <div style={{ width: 3, height: 18, borderRadius: 2, background: barColor }} />
-        <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.18em", color: titleColor, textTransform: "uppercase" }}>{title}</span>
-      </div>
-      <div style={{ padding: 20 }}>{children}</div>
-    </div>
-  );
+// ── HELPERS ───────────────────────────────────────────────────────────────────
+function r5(v){ return Math.round(v/2.5)*2.5; }
+function fw(v){ if(v===null||isNaN(v))return"--"; var r=r5(v); return r%1===0?""+r:r.toFixed(1); }
+function epley(w,r){ if(!w||!r||r<=0)return null; return r===1?w:w*(1+r/30); }
+function adjR(tbl,r){ for(var i=0;i<tbl.length;i++){ if(r<=tbl[i].x)return tbl[i]; } return tbl[tbl.length-1]; }
+function zTag(z){ return z==="up"?"tup":z==="dn"?"tdn":"tsa"; }
+function zLbl(z){ return z==="up"?"INCREASE":z==="dn"?"REDUCE":"HOLD"; }
+function zEmoji(z){ return z==="up"?"🔼":z==="dn"?"🔽":"✅"; }
+function exC(ex){ return ex==="ke"?"var(--lime)":"var(--blue)"; }
+function fmtRange(base,delta){
+  if(delta[0]===0&&delta[1]===0)return fw(base)+" lbs";
+  var lo=r5(base+delta[0]),hi=r5(base+delta[1]);
+  return lo===hi?fw(lo)+" lbs":fw(lo)+"-"+fw(hi)+" lbs";
 }
 
-// ─── SET TABLE ROW ──────────────────────────────────────────────────────────
-function SetRow({ label, load, reps, highlight, isInput, inputValue, onInput, unit }) {
-  return (
-    <div style={{
-      display: "grid", gridTemplateColumns: "1.2fr 1fr 1fr", gap: 10, padding: "10px 14px",
-      background: highlight ? LIME + "0a" : "transparent",
-      borderBottom: `1px solid ${BORDER}22`, alignItems: "center",
-    }}>
-      <div style={{ fontSize: 12, fontWeight: highlight ? 800 : 600, color: highlight ? LIME : "#aaa" }}>{label}</div>
-      <div style={{ fontSize: 14, fontWeight: 700, fontFamily: "monospace", color: highlight ? LIME : WHITE, textAlign: "center" }}>
-        {load != null ? `${load} ${unit || "lbs"}` : "—"}
-      </div>
-      {isInput ? (
-        <input
-          style={{ ...inp, padding: "6px 10px", fontSize: 14, fontWeight: 700 }}
-          type="number" min="0" step="1" placeholder="reps"
-          value={inputValue} onChange={e => onInput(e.target.value)}
-        />
-      ) : (
-        <div style={{ fontSize: 14, fontWeight: 700, fontFamily: "monospace", color: highlight ? LIME : WHITE, textAlign: "center" }}>
-          {reps}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── EXERCISE CALCULATOR CARD ───────────────────────────────────────────────
-function ExerciseCard({ title, icon, proto, protoKey }) {
-  const [rm, setRm] = useState("");
-  const [reps3, setReps3] = useState("");
-  const [reps4, setReps4] = useState("");
-
-  const p = PROTO[protoKey];
-  const rmNum = parseFloat(rm) || 0;
-  const set1Load = r5(rmNum * p.sets[0].pct / 100);
-  const set2Load = r5(rmNum * p.sets[1].pct / 100);
-  const set3Load = rmNum > 0 ? r5(rmNum) : 0;
-  const set4Load = (rmNum > 0 && reps3 !== "") ? adjSet4(protoKey, reps3, set3Load) : null;
-  const est1RM = (set4Load && reps4 !== "") ? epley(set4Load, parseInt(reps4) || 0) : null;
-  const nextWt = (set4Load && reps4 !== "") ? nextSession(protoKey, reps4, set4Load) : null;
-
-  return (
-    <Card title={`${icon}  ${title}`} accent={rmNum > 0}>
-      <div style={{ marginBottom: 16 }}>
-        <label style={lbl}>{protoKey.replace("APRE ", "")}RM Working Weight (lbs)</label>
-        <input style={inp} type="number" min="0" step="5" placeholder="Enter estimated RM" value={rm} onChange={e => setRm(e.target.value)} />
-      </div>
-      {rmNum > 0 && (
-        <>
-          {/* Set table header */}
-          <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr 1fr", gap: 10, padding: "8px 14px", borderBottom: `1px solid ${BORDER}` }}>
-            <div style={{ fontSize: 10, fontWeight: 800, color: MUTED, textTransform: "uppercase", letterSpacing: "0.1em" }}>Set</div>
-            <div style={{ fontSize: 10, fontWeight: 800, color: MUTED, textTransform: "uppercase", letterSpacing: "0.1em", textAlign: "center" }}>Load</div>
-            <div style={{ fontSize: 10, fontWeight: 800, color: MUTED, textTransform: "uppercase", letterSpacing: "0.1em", textAlign: "center" }}>Reps</div>
-          </div>
-          <SetRow label={p.sets[0].label} load={set1Load} reps={p.sets[0].reps} />
-          <SetRow label={p.sets[1].label} load={set2Load} reps={p.sets[1].reps} />
-          <SetRow label={p.sets[2].label} load={set3Load} reps="AMRAP" highlight isInput inputValue={reps3} onInput={setReps3} />
-          <SetRow label={p.sets[3].label} load={set4Load} reps="AMRAP" highlight isInput inputValue={reps4} onInput={setReps4} />
-
-          {/* Results */}
-          {est1RM && (
-            <div style={{ marginTop: 16, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-              <div style={{ padding: "12px 14px", borderRadius: 8, background: "#0f0f0f", border: `1px solid ${LIME}33`, textAlign: "center" }}>
-                <div style={{ fontSize: 9, fontWeight: 800, color: MUTED, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 4 }}>Estimated 1RM</div>
-                <div style={{ fontSize: 22, fontWeight: 900, fontFamily: "monospace", color: LIME }}>{est1RM} lbs</div>
-              </div>
-              <div style={{ padding: "12px 14px", borderRadius: 8, background: "#0f0f0f", border: `1px solid ${GOLD}33`, textAlign: "center" }}>
-                <div style={{ fontSize: 9, fontWeight: 800, color: MUTED, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 4 }}>Next Session Weight</div>
-                <div style={{ fontSize: 22, fontWeight: 900, fontFamily: "monospace", color: GOLD }}>{nextWt} lbs</div>
-              </div>
-            </div>
-          )}
-        </>
-      )}
-    </Card>
-  );
-}
-
-// ─── WORKOUTS TAB ───────────────────────────────────────────────────────────
-function WorkoutsTab({ protoKey }) {
-  const [keRM, setKeRM] = useState("");
-  const [lpRM, setLpRM] = useState("");
-  const p = PROTO[protoKey];
-  const keNum = parseFloat(keRM) || 0;
-  const lpNum = parseFloat(lpRM) || 0;
-
-  const generateWeek = (rmVal, exerciseName) => {
-    if (rmVal <= 0) return null;
-    return [1, 2, 3].map(day => {
-      const s1 = r5(rmVal * p.sets[0].pct / 100);
-      const s2 = r5(rmVal * p.sets[1].pct / 100);
-      const s3 = r5(rmVal);
-      return { day, exercise: exerciseName, s1, s2, s3, s1r: p.sets[0].reps, s2r: p.sets[1].reps };
+// ── QR (npm qrcode package) ───────────────────────────────────────────────────
+async function makeQRDataURL(url){
+  try {
+    return await QRCode.toDataURL(url,{
+      width:180, margin:2, errorCorrectionLevel:'M',
+      color:{dark:'#000000',light:'#ffffff'}
     });
-  };
-
-  const keWeek = generateWeek(keNum, "Knee Extension");
-  const lpWeek = generateWeek(lpNum, "Leg Press");
-
-  return (
-    <div>
-      <Card title="Weekly Workout Generator" accent>
-        <div style={{ fontSize: 12, color: MUTED, marginBottom: 16, lineHeight: 1.7 }}>
-          Enter your current estimated RM for each exercise to generate a week of {protoKey} programming. Each day uses the same starting loads — the APRE auto-regulation adjusts weight within the session based on Set 3 and Set 4 rep performance.
-        </div>
-        <div className="apre-grid2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-          <div>
-            <label style={lbl}>Knee Extension — {protoKey.replace("APRE ", "")}RM (lbs)</label>
-            <input style={inp} type="number" min="0" step="5" placeholder="e.g. 80" value={keRM} onChange={e => setKeRM(e.target.value)} />
-          </div>
-          <div>
-            <label style={lbl}>Leg Press — {protoKey.replace("APRE ", "")}RM (lbs)</label>
-            <input style={inp} type="number" min="0" step="5" placeholder="e.g. 200" value={lpRM} onChange={e => setLpRM(e.target.value)} />
-          </div>
-        </div>
-      </Card>
-
-      {(keWeek || lpWeek) && [1, 2, 3].map(day => (
-        <Card key={day} title={`Day ${day} — ${protoKey}`}>
-          {[keWeek, lpWeek].filter(Boolean).map((week, wi) => {
-            const d = week[day - 1];
-            return (
-              <div key={wi} style={{ marginBottom: wi === 0 && lpWeek ? 20 : 0 }}>
-                <div style={{ fontSize: 12, fontWeight: 800, color: LIME, marginBottom: 8 }}>{d.exercise}</div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8 }}>
-                  {[
-                    { label: "Set 1", load: d.s1, reps: d.s1r },
-                    { label: "Set 2", load: d.s2, reps: d.s2r },
-                    { label: "Set 3", load: d.s3, reps: "AMRAP" },
-                    { label: "Set 4", load: "Adjusted", reps: "AMRAP" },
-                  ].map((s, si) => (
-                    <div key={si} style={{ padding: "8px 10px", borderRadius: 6, background: "#0f0f0f", border: `1px solid ${si >= 2 ? LIME + "33" : BORDER}`, textAlign: "center" }}>
-                      <div style={{ fontSize: 9, fontWeight: 800, color: MUTED, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>{s.label}</div>
-                      <div style={{ fontSize: 14, fontWeight: 800, fontFamily: "monospace", color: si >= 2 ? LIME : WHITE }}>{typeof s.load === "number" ? `${s.load} lbs` : s.load}</div>
-                      <div style={{ fontSize: 10, color: MUTED, marginTop: 2 }}>× {s.reps}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-        </Card>
-      ))}
-    </div>
-  );
+  } catch(e){ return null; }
 }
 
-// ─── PROGRESSION TIMELINE TAB ───────────────────────────────────────────────
-function ProgressionTab({ protoKey }) {
-  return (
-    <div>
-      <Card title="APRE Progression Timeline" accent>
-        <div style={{ fontSize: 12, color: MUTED, marginBottom: 20, lineHeight: 1.7 }}>
-          Suggested 12-week periodization model progressing through all three APRE protocols. Current protocol is highlighted. Adjust timing based on patient response and clinical judgment.
-        </div>
-        <div style={{ position: "relative" }}>
-          {/* Vertical line */}
-          <div style={{ position: "absolute", left: 18, top: 0, bottom: 0, width: 2, background: BORDER }} />
-          {TIMELINE.map((t, i) => {
-            const active = protoKey === t.proto;
-            return (
-              <div key={i} style={{ display: "flex", gap: 16, marginBottom: 20, alignItems: "flex-start", position: "relative" }}>
-                {/* Dot */}
-                <div style={{
-                  width: 18, height: 18, borderRadius: "50%", flexShrink: 0,
-                  background: active ? t.color : "#222",
-                  border: `2px solid ${active ? t.color : BORDER}`,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  boxShadow: active ? `0 0 12px ${t.color}44` : "none",
-                  zIndex: 1, marginTop: 3,
-                }}>
-                  {active && <div style={{ width: 6, height: 6, borderRadius: "50%", background: BLACK }} />}
-                </div>
-                {/* Content */}
-                <div style={{
-                  flex: 1, padding: "12px 16px", borderRadius: 10,
-                  background: active ? t.color + "12" : "#111",
-                  border: `1px solid ${active ? t.color + "55" : BORDER}`,
-                  boxShadow: active ? `0 0 16px ${t.color}22` : "none",
-                }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                    <span style={{ fontSize: 12, fontWeight: 800, color: active ? t.color : WHITE }}>{t.phase}</span>
-                    <span style={{ fontSize: 10, fontWeight: 700, color: t.color, letterSpacing: "0.1em" }}>{t.proto}</span>
-                  </div>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: MUTED, marginBottom: 4 }}>{t.wks}</div>
-                  <div style={{ fontSize: 11, color: active ? "#ccc" : "#888", lineHeight: 1.5 }}>{t.focus}</div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </Card>
-
-      {/* 6-Week Block History */}
-      <Card title="6-Week Block Structure">
-        <div style={{ fontSize: 12, color: MUTED, marginBottom: 14, lineHeight: 1.7 }}>
-          Each 6-week block represents a full mesocycle. Track estimated 1RM trends across blocks to ensure progressive overload.
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
-          {[
-            { label: "Block 1", wks: "Wks 1–6", protos: "APRE 10 → APRE 6", color: LIME },
-            { label: "Block 2", wks: "Wks 7–12", protos: "APRE 6 → APRE 3", color: GOLD },
-            { label: "Block 3", wks: "Wks 13–18", protos: "Repeat / Sport-Specific", color: BLUE },
-          ].map((b, i) => (
-            <div key={i} style={{ padding: "14px", borderRadius: 10, background: "#111", border: `1px solid ${b.color}33`, textAlign: "center" }}>
-              <div style={{ fontSize: 12, fontWeight: 800, color: b.color, marginBottom: 4 }}>{b.label}</div>
-              <div style={{ fontSize: 10, color: MUTED, marginBottom: 2 }}>{b.wks}</div>
-              <div style={{ fontSize: 10, fontWeight: 700, color: "#888" }}>{b.protos}</div>
-            </div>
-          ))}
-        </div>
-      </Card>
-    </div>
-  );
+// ── URL / SESSION ─────────────────────────────────────────────────────────────
+function buildQRPayload(){
+  var wkNum=parseInt(document.getElementById("s_weeks").value)||SESSION.currentWeek;
+  var hke=SESSION.hist_ke.slice(), hlp=SESSION.hist_lp.slice();
+  if(S.ke.rm&&wkNum>=1&&wkNum<=6) hke[wkNum-1]=Math.round(S.ke.rm);
+  if(S.lp.rm&&wkNum>=1&&wkNum<=6) hlp[wkNum-1]=Math.round(S.lp.rm);
+  var payload={wk:wkNum,proto:proto,ke_nw:S.ke.nextw?Math.round(S.ke.nextw):null,lp_nw:S.lp.nextw?Math.round(S.lp.nextw):null,hke:hke,hlp:hlp};
+  return APP_URL+"?s="+btoa(JSON.stringify(payload));
 }
 
-// ─── REFERENCE TAB ──────────────────────────────────────────────────────────
-function ReferenceTab() {
-  return (
-    <div>
-      {Object.keys(PROTO).map(key => {
-        const p = PROTO[key];
-        return (
-          <Card key={key} title={p.label}>
-            <div style={{ fontSize: 11, color: MUTED, marginBottom: 16, lineHeight: 1.6 }}>{p.desc}</div>
-
-            {/* Set Structure */}
-            <div style={{ marginBottom: 20 }}>
-              <div style={{ fontSize: 10, fontWeight: 800, color: LIME, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 8 }}>Set Structure</div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
-                {p.sets.map((s, i) => (
-                  <div key={i} style={{ padding: "10px", borderRadius: 8, background: "#0f0f0f", border: `1px solid ${i >= 2 ? LIME + "33" : BORDER}`, textAlign: "center" }}>
-                    <div style={{ fontSize: 9, fontWeight: 800, color: MUTED, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>{`Set ${i + 1}`}</div>
-                    <div style={{ fontSize: 13, fontWeight: 800, fontFamily: "monospace", color: i >= 2 ? LIME : WHITE }}>{s.pct ? `${s.pct}%` : "Adj"}</div>
-                    <div style={{ fontSize: 10, color: MUTED, marginTop: 2 }}>× {s.reps}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Adjustment Tables */}
-            {[
-              { label: "Set 3 Rep Adjustment (→ Set 4 Load)", data: p.adj3 },
-              { label: "Set 4 Rep Adjustment (→ Next Session)", data: p.adj4 },
-            ].map((table, ti) => (
-              <div key={ti} style={{ marginBottom: ti === 0 ? 20 : 0 }}>
-                <div style={{ fontSize: 10, fontWeight: 800, color: GOLD, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 8 }}>{table.label}</div>
-                <div style={{ borderRadius: 8, overflow: "hidden", border: `1px solid ${BORDER}` }}>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", background: "#141414", padding: "8px 14px", borderBottom: `1px solid ${BORDER}` }}>
-                    <div style={{ fontSize: 9, fontWeight: 800, color: MUTED, textTransform: "uppercase", letterSpacing: "0.1em" }}>Reps Achieved</div>
-                    <div style={{ fontSize: 9, fontWeight: 800, color: MUTED, textTransform: "uppercase", letterSpacing: "0.1em" }}>Action</div>
-                  </div>
-                  {table.data.map((row, ri) => (
-                    <div key={ri} style={{ display: "grid", gridTemplateColumns: "1fr 2fr", padding: "8px 14px", borderBottom: ri < table.data.length - 1 ? `1px solid ${BORDER}22` : "none", background: ri % 2 === 0 ? "#111" : "transparent" }}>
-                      <div style={{ fontSize: 12, fontWeight: 700, fontFamily: "monospace", color: row.color }}>{row.range}</div>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: "#ccc" }}>{row.action}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </Card>
-        );
-      })}
-
-      {/* Epley Formula Reference */}
-      <Card title="Estimated 1RM — Epley Formula">
-        <div style={{ fontSize: 12, color: MUTED, lineHeight: 1.7 }}>
-          <strong style={{ color: WHITE }}>1RM = Weight × (1 + Reps / 30)</strong>
-          <br /><br />
-          The Epley formula is used to estimate a 1-rep maximum from sub-maximal performance. All estimated 1RM values in this calculator use this formula applied to Set 4 data (adjusted load × reps achieved). Values are rounded to the nearest 5 lbs.
-        </div>
-      </Card>
-    </div>
-  );
+function loadFromURL(){
+  var params=new URLSearchParams(window.location.search);
+  var s=params.get("s");
+  if(!s)return;
+  try {
+    var data=JSON.parse(atob(s));
+    if(data.proto&&PROTO[data.proto]){ proto=data.proto; }
+    SESSION.currentWeek=Math.min((data.wk||1)+1,6);
+    SESSION.hist_ke=data.hke||[null,null,null,null,null,null];
+    SESSION.hist_lp=data.hlp||[null,null,null,null,null,null];
+    SESSION.prevKEw=data.ke_nw||null;
+    SESSION.prevLPw=data.lp_nw||null;
+    SESSION.loadedFromQR=true;
+    document.getElementById("p10").classList.toggle("on",proto==="apre10");
+    document.getElementById("p6").classList.toggle("on",proto==="apre6");
+    document.getElementById("p3").classList.toggle("on",proto==="apre3");
+    document.getElementById("phLbl").textContent=PROTO[proto].phase;
+    document.getElementById("phWk").textContent=PROTO[proto].wk;
+    var banner=document.getElementById("wk_banner");
+    document.getElementById("wk_num_banner").textContent=SESSION.currentWeek;
+    banner.style.display="block";
+    if(SESSION.prevKEw){document.getElementById("wk_ke_hint").style.display="block";document.getElementById("wk_ke_hint_val").textContent=fw(SESSION.prevKEw)+" lbs";}
+    if(SESSION.prevLPw){document.getElementById("wk_lp_hint").style.display="block";document.getElementById("wk_lp_hint_val").textContent=fw(SESSION.prevLPw)+" lbs";}
+    var swk=document.getElementById("s_weeks");
+    if(swk)swk.value=SESSION.currentWeek;
+    if(SESSION.prevKEw){var kww=document.getElementById("ke_ww");if(kww){kww.value=fw(SESSION.prevKEw);calc("ke");}}
+    if(SESSION.prevLPw){var lpww=document.getElementById("lp_ww");if(lpww){lpww.value=fw(SESSION.prevLPw);calc("lp");}}
+    drawHistory();
+  } catch(e){ console.warn("QR decode failed",e); }
 }
 
-// ─── PDF EXPORT ─────────────────────────────────────────────────────────────
-let _jsPDFResolve;
-const _jsPDFPromise = new Promise(res => { _jsPDFResolve = res; });
-if (typeof window !== "undefined") {
-  if (window.jspdf) { _jsPDFResolve(window.jspdf); }
-  else {
-    const script = document.createElement("script");
-    script.src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
-    script.onload = () => _jsPDFResolve(window.jspdf);
-    document.head.appendChild(script);
-  }
-}
-const getJsPDF = () => _jsPDFPromise;
-
-// ─── PATIENT INFO MODAL ────────────────────────────────────────────────────
-function PatientInfoModal({ open, onClose, onExport }) {
-  const [ptName, setPtName] = useState("");
-  const [date, setDate] = useState("");
-  const [therapist, setTherapist] = useState("");
-  const [notes, setNotes] = useState("");
-
-  if (!open) return null;
-  return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)", display: "flex", alignItems: "flex-end", justifyContent: "center", padding: 0 }}>
-      <div style={{ background: "#141414", border: `1px solid ${BORDER}`, borderRadius: "20px 20px 0 0", width: "100%", maxWidth: 500, maxHeight: "85vh", overflow: "auto", boxShadow: "0 -8px 40px rgba(0,0,0,0.8)" }}>
-        <div style={{ padding: "20px 24px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-            <span style={{ fontSize: 14, fontWeight: 800, color: WHITE }}>Export Session PDF</span>
-            <button onClick={onClose} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 20, lineHeight: 1 }}>×</button>
-          </div>
-          <div style={{ fontSize: 11, color: MUTED, marginBottom: 16 }}>Optional — leave blank to omit from PDF.</div>
-          <div style={{ display: "grid", gap: 12, marginBottom: 20 }}>
-            <div>
-              <label style={lbl}>Patient Name</label>
-              <input style={{ ...inp, textAlign: "left" }} type="text" placeholder="Full name" value={ptName} onChange={e => setPtName(e.target.value)} />
-            </div>
-            <div>
-              <label style={lbl}>Date</label>
-              <input style={{ ...inp, textAlign: "left" }} type="text" placeholder="MM/DD/YYYY" value={date} onChange={e => setDate(e.target.value)} />
-            </div>
-            <div>
-              <label style={lbl}>Therapist</label>
-              <input style={{ ...inp, textAlign: "left" }} type="text" placeholder="Name, credentials" value={therapist} onChange={e => setTherapist(e.target.value)} />
-            </div>
-            <div>
-              <label style={lbl}>Clinical Notes</label>
-              <textarea style={{ ...inp, textAlign: "left", height: 80, resize: "vertical" }} placeholder="Any additional notes..." value={notes} onChange={e => setNotes(e.target.value)} />
-            </div>
-          </div>
-          <button onClick={() => onExport({ ptName, date, therapist, notes })} style={{
-            width: "100%", padding: 14, borderRadius: 10, fontSize: 13, fontWeight: 900,
-            letterSpacing: "0.12em", textTransform: "uppercase", cursor: "pointer",
-            background: `linear-gradient(135deg,${LIME},${LIME_DIM})`, color: BLACK, border: "none",
-          }}>
-            ⬇ Export PDF
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── MAIN APP ────────────────────────────────────────────────────────────────
-export default function App() {
-  const [activeTab, setActiveTab] = useState(0);
-  const [protoKey, setProtoKey] = useState("APRE 6");
-  const [pdfModalOpen, setPdfModalOpen] = useState(false);
-
-  const tabs = [
-    { label: "Calculator", sub: "Set Loads" },
-    { label: "Workouts", sub: "Weekly Plan" },
-    { label: "Progression", sub: "Timeline" },
-    { label: "Reference", sub: "Tables" },
+// ── SET TABLE ─────────────────────────────────────────────────────────────────
+function drawSets(ex,ww){
+  var pp=PROTO[proto];
+  var s1=ww>0?r5(ww*0.50):null;
+  var s2=ww>0?r5(ww*0.75):null;
+  var c=exC(ex);
+  var rows=[
+    {lb:"Set 1",rp:pp.s1r,ld:s1,pt:"50%",hl:false},
+    {lb:"Set 2",rp:pp.s2r,ld:s2,pt:"75%",hl:false},
+    {lb:"Set 3",rp:"Max",ld:ww>0?ww:null,pt:"100%",hl:true},
+    {lb:"Set 4",rp:"Max",ld:null,pt:"Adj.",hl:true,adj:true}
   ];
+  var html=rows.map(function(r){
+    var tdStyle=r.hl?"color:"+c+";font-weight:700":"";
+    var loadCell;
+    if(r.adj){loadCell='<span style="color:#333">See below</span>';}
+    else if(r.ld!==null){loadCell='<span style="'+(r.hl?"color:"+c+";font-weight:700":"")+'">'+(fw(r.ld))+'</span>';}
+    else{loadCell='<span style="color:#333">--</span>';}
+    return '<tr class="'+(r.hl?"hl":"")+'">'
+      +'<td style="'+tdStyle+'">'+r.lb+'</td>'
+      +'<td>'+r.rp+'</td>'
+      +'<td>'+loadCell+'</td>'
+      +'<td style="color:#444">'+r.pt+'</td>'
+      +'</tr>';
+  }).join('');
+  document.getElementById(ex+"_tbl").innerHTML=html;
+}
 
-  const handleExportPDF = async (info) => {
-    setPdfModalOpen(false);
-    const { jsPDF } = await getJsPDF();
-    const doc = new jsPDF({ unit: "pt", format: "letter" });
-    const W = 612, H = 792;
-    const L = 48, R = W - 48;
-
-    // ─── PAGE 1: Clinician Summary ───
-    doc.setFillColor(10, 10, 10);
-    doc.rect(0, 0, W, H, "F");
-
-    // Header bar
-    doc.setFillColor(17, 17, 17);
-    doc.rect(0, 0, W, 44, "F");
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(18);
-    doc.setTextColor(255, 255, 255);
-    doc.text("TRM", L, 30);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.setTextColor(100, 100, 100);
-    doc.text("APRE Calculator — Session Summary", L + 50, 30);
-
-    const today = info.date || new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
-    doc.text(today, R - doc.getTextWidth(today), 30);
-
-    let y = 68;
-
-    // Patient info
-    if (info.ptName || info.therapist) {
-      doc.setFontSize(8);
-      doc.setTextColor(100, 100, 100);
-      doc.setFont("helvetica", "bold");
-      doc.text("PATIENT INFORMATION", L, y);
-      y += 14;
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(10);
-      doc.setTextColor(200, 200, 200);
-      if (info.ptName) { doc.text(`Patient: ${info.ptName}`, L, y); y += 14; }
-      if (info.therapist) { doc.text(`Therapist: ${info.therapist}`, L, y); y += 14; }
-      y += 8;
+// ── CALC ──────────────────────────────────────────────────────────────────────
+function calc(ex){
+  var pp=PROTO[proto];
+  var rawWW=document.getElementById(ex+"_ww").value.replace(/[^\d.]/g,"");
+  var rawS3=document.getElementById(ex+"_s3").value.replace(/[^\d]/g,"");
+  var rawS4=document.getElementById(ex+"_s4").value.replace(/[^\d]/g,"");
+  var ww=parseFloat(rawWW)||0;
+  var s3n=rawS3!==""?parseInt(rawS3):null;
+  var s4n=rawS4!==""?parseInt(rawS4):null;
+  S[ex].ww=ww||null; S[ex].s3r=s3n; S[ex].s4r=s4n;
+  drawSets(ex,ww);
+  var anyInput=["ke_ww","ke_s3","ke_s4","lp_ww","lp_s3","lp_s4"].some(function(id){return document.getElementById(id).value.trim()!=="";});
+  document.getElementById("resetBtn").classList.toggle("hidden",!anyInput);
+  var c=exC(ex);
+  if(s3n!==null&&ww>0){
+    var a3=adjR(pp.s3,s3n);
+    var s4w=r5(ww+(a3.d[0]+a3.d[1])/2);
+    S[ex].s4w=s4w;
+    document.getElementById(ex+"_s4rec").classList.remove("hidden");
+    document.getElementById(ex+"_s4rec").innerHTML=
+      '<div class="rb '+ex+'">'
+      +'<div class="rl">Set 4 -- Adjusted Load</div>'
+      +'<div class="rm2">'
+      +'<div><div class="rw" style="color:'+c+'">'+fmtRange(ww,a3.d)+'</div><div class="rs">go to failure</div></div>'
+      +'<span class="rtag '+zTag(a3.z)+'">'+zLbl(a3.z)+'</span>'
+      +'</div></div>';
+    document.getElementById(ex+"_s4g").classList.remove("hidden");
+    if(s4n!==null){
+      var rm=epley(s4w,s4n);
+      S[ex].rm=rm;
+      if(rm){document.getElementById(ex+"_rmb").classList.remove("hidden");document.getElementById(ex+"_rm").textContent=fw(rm)+" lbs";}
+      var a4=adjR(pp.s4,s4n);
+      var nextw=r5(s4w+(a4.n[0]+a4.n[1])/2);
+      S[ex].nextw=nextw;
+      document.getElementById(ex+"_next").classList.remove("hidden");
+      document.getElementById(ex+"_next").innerHTML=
+        '<div class="rb '+ex+'" style="margin-bottom:0">'
+        +'<div class="rl">Next Session -- Set 3 Starting Weight</div>'
+        +'<div class="rm2">'
+        +'<div><div class="rw" style="color:'+c+'">'+fmtRange(s4w,a4.n)+'</div><div class="rs">working weight for Set 3</div></div>'
+        +'<span style="font-size:22px">'+zEmoji(a4.z)+'</span>'
+        +'</div></div>';
+    } else {
+      S[ex].rm=null;S[ex].nextw=null;
+      document.getElementById(ex+"_next").classList.add("hidden");
+      document.getElementById(ex+"_rmb").classList.add("hidden");
     }
+  } else {
+    S[ex].s4w=null;S[ex].rm=null;S[ex].nextw=null;
+    document.getElementById(ex+"_s4rec").classList.add("hidden");
+    document.getElementById(ex+"_s4g").classList.add("hidden");
+    document.getElementById(ex+"_next").classList.add("hidden");
+    document.getElementById(ex+"_rmb").classList.add("hidden");
+  }
+  drawWorkouts();
+  updateFab();
+}
 
-    // Protocol
-    doc.setFontSize(8);
-    doc.setTextColor(100, 100, 100);
-    doc.setFont("helvetica", "bold");
-    doc.text("PROTOCOL", L, y);
-    y += 14;
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(11);
-    doc.setTextColor(184, 255, 87);
-    doc.text(PROTO[protoKey].label, L, y);
-    y += 12;
-    doc.setFontSize(9);
-    doc.setTextColor(150, 150, 150);
-    const descLines = doc.splitTextToSize(PROTO[protoKey].desc, R - L);
-    doc.text(descLines, L, y);
-    y += descLines.length * 12 + 14;
+// ── WORKOUTS ──────────────────────────────────────────────────────────────────
+function drawWorkouts(){
+  var pp=PROTO[proto];
+  var keRM=S.ke.rm,lpRM=S.lp.rm;
+  if(!keRM&&!lpRM){document.getElementById("w_empty").classList.remove("hidden");document.getElementById("w_content").classList.add("hidden");return;}
+  document.getElementById("w_empty").classList.add("hidden");document.getElementById("w_content").classList.remove("hidden");
+  function cL(rm,p){return rm?fw(r5(rm*p))+" lbs":"--";}
+  function xRow(dotC,name,detail,load,loadC){
+    return '<div class="xi">'
+      +'<div class="xdot" style="background:'+dotC+'"></div>'
+      +'<div style="flex:1"><div class="xname">'+name+'</div><div class="xdet">'+detail+'</div></div>'
+      +'<div class="xload" style="color:'+(loadC||"#555")+';font-size:'+(loadC?"12px":"11px")+'">'+load+'</div>'
+      +'</div>';
+  }
+  var both=keRM&&lpRM;
+  var w2="",w3="";
+  if(keRM){w2+=xRow("var(--lime)","Knee Extension",pp.w2s+" · "+Math.round(pp.w2p*100)+"% 1RM",cL(keRM,pp.w2p),"var(--lime)");w3+=xRow("var(--lime)","Knee Extension",pp.w3s+" · "+Math.round(pp.w3p*100)+"% 1RM · "+pp.w3t,cL(keRM,pp.w3p),"var(--lime)");}
+  if(lpRM){w2+=xRow("var(--blue)","Leg Press / Shuttle",pp.w2s+" · "+Math.round(pp.w2p*100)+"% 1RM",cL(lpRM,pp.w2p),"var(--blue)");w3+=xRow("var(--blue)","Leg Press / Shuttle",pp.w3s+" · "+Math.round(pp.w3p*100)+"% 1RM · "+pp.w3t,cL(lpRM,pp.w3p),"var(--blue)");}
+  pp.w2companions.forEach(function(c){w2+=xRow("#333",c.name,c.detail,c.load||"","");});
+  pp.w3companions.forEach(function(c){w3+=xRow("#333",c.name,c.detail,c.load||"","");});
+  var legend="";
+  if(both){legend='<div style="display:flex;margin-bottom:12px;background:#111;border-radius:8px;border:1px solid #1e1e1e;overflow:hidden"><div style="flex:1;padding:10px 12px"><div style="font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--lime);margin-bottom:3px">KE Est. 1RM</div><div style="font-size:20px;font-weight:800;font-family:monospace;color:var(--lime)">'+fw(keRM)+' lbs</div></div><div style="width:1px;background:#1e1e1e"></div><div style="flex:1;padding:10px 12px"><div style="font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--blue);margin-bottom:3px">LP Est. 1RM</div><div style="font-size:20px;font-weight:800;font-family:monospace;color:var(--blue)">'+fw(lpRM)+' lbs</div></div></div>';}
+  else if(keRM){legend='<div style="margin-bottom:12px;padding:10px 12px;background:#111;border-radius:8px;border:1px solid rgba(184,255,87,.15)"><div style="font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--lime);margin-bottom:3px">KE Est. 1RM</div><div style="font-size:20px;font-weight:800;font-family:monospace;color:var(--lime)">'+fw(keRM)+' lbs</div></div>';}
+  else{legend='<div style="margin-bottom:12px;padding:10px 12px;background:#111;border-radius:8px;border:1px solid rgba(56,189,248,.15)"><div style="font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--blue);margin-bottom:3px">LP Est. 1RM</div><div style="font-size:20px;font-weight:800;font-family:monospace;color:var(--blue)">'+fw(lpRM)+' lbs</div></div>';}
+  document.getElementById("w_content").innerHTML=legend
+    +'<div class="stitle">'+pp.name+' — Weekly Volume Sessions</div>'
+    +'<div class="wcard"><div class="wday">Workout 2 — Mid-Week <span class="wtag">'+Math.round(pp.w2p*100)+'% 1RM</span></div>'+w2+'</div>'
+    +'<div class="wcard"><div class="wday">Workout 3 — End of Week <span class="wtag">'+Math.round(pp.w3p*100)+'% 1RM</span></div>'+w3+'</div>'
+    +'<div style="font-size:10px;color:#333;line-height:1.7;margin-top:4px">Companion exercises are suggestions — adjust to patient tolerance.<br><span style="color:var(--lime)">Green</span> = Knee Extension · <span style="color:var(--blue)">Blue</span> = Leg Press loads.</div>';
+  drawHistory();
+}
 
-    // Set structure
-    doc.setFontSize(8);
-    doc.setTextColor(100, 100, 100);
-    doc.setFont("helvetica", "bold");
-    doc.text("SET STRUCTURE", L, y);
-    y += 14;
-    PROTO[protoKey].sets.forEach((s, i) => {
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(10);
-      doc.setTextColor(200, 200, 200);
-      const pctStr = s.pct ? `${s.pct}%` : "Adjusted";
-      doc.text(`Set ${i + 1}: ${pctStr} × ${s.reps}`, L + 10, y);
-      y += 13;
-    });
-    y += 12;
-
-    // Adjustment tables
-    ["adj3", "adj4"].forEach((adjKey) => {
-      const tableLabel = adjKey === "adj3" ? "SET 3 ADJUSTMENT → SET 4 LOAD" : "SET 4 ADJUSTMENT → NEXT SESSION";
-      doc.setFontSize(8);
-      doc.setTextColor(100, 100, 100);
-      doc.setFont("helvetica", "bold");
-      doc.text(tableLabel, L, y);
-      y += 14;
-      PROTO[protoKey][adjKey].forEach(row => {
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(9);
-        doc.setTextColor(200, 200, 200);
-        doc.text(`${row.range}:  ${row.action}`, L + 10, y);
-        y += 12;
+// ── HISTORY ───────────────────────────────────────────────────────────────────
+function drawHistory(){
+  var wkNum=SESSION.currentWeek;
+  var hke=SESSION.hist_ke.slice(),hlp=SESSION.hist_lp.slice();
+  if(S.ke.rm)hke[wkNum-1]=Math.round(S.ke.rm);
+  if(S.lp.rm)hlp[wkNum-1]=Math.round(S.lp.rm);
+  var hasAny=hke.some(function(v){return v!==null;})||hlp.some(function(v){return v!==null;});
+  var html='<div class="stitle">6-Week Block — 1RM Progression</div>';
+  if(!hasAny&&!SESSION.loadedFromQR){
+    html+='<div class="card"><div class="cb" style="text-align:center;padding:28px 16px"><div style="font-size:30px;margin-bottom:10px">📊</div><div style="font-size:12px;color:var(--muted);line-height:1.7">No history yet.<br>Complete Week 1 and export a PDF.<br>Scan the QR next session to see your block progress here.</div></div></div>';
+  } else {
+    html+='<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:12px">';
+    html+='<div style="padding:10px 14px;background:#161616;border-bottom:1px solid var(--border);font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)">Estimated 1RM by Week</div>';
+    html+='<table style="width:100%;border-collapse:collapse"><thead><tr><th style="font-size:9px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:8px 14px;text-align:left">Exercise</th>';
+    for(var w=1;w<=6;w++){var isCur=w===wkNum;html+='<th style="font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:'+(isCur?'var(--lime)':'var(--muted)')+';padding:8px 6px;text-align:center">Wk'+w+(isCur?' ●':'')+'</th>';}
+    html+='</tr></thead><tbody>';
+    html+='<tr><td style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--lime)">KE</td>';
+    for(var w=1;w<=6;w++){var val=hke[w-1];var isCur=w===wkNum;var prev=w>1?hke[w-2]:null;var delta=(val!==null&&prev!==null)?(val-prev):null;var dStr=delta!==null?('<span style="font-size:9px;color:'+(delta>0?'var(--lime)':delta<0?'var(--red)':'var(--muted)')+'"> '+(delta>0?'+':'')+delta+'</span>'):'';html+='<td style="padding:10px 6px;text-align:center;font-family:monospace;font-size:'+(isCur?'14px':'12px')+';font-weight:'+(isCur?'800':'400')+';color:'+(val!==null?(isCur?'var(--lime)':'#aaa'):'#333')+'">'+(val!==null?val+'<br>'+dStr:'—')+'</td>';}
+    html+='</tr>';
+    html+='<tr><td style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--blue)">LP</td>';
+    for(var w=1;w<=6;w++){var val=hlp[w-1];var isCur=w===wkNum;var prev=w>1?hlp[w-2]:null;var delta=(val!==null&&prev!==null)?(val-prev):null;var dStr=delta!==null?('<span style="font-size:9px;color:'+(delta>0?'var(--lime)':delta<0?'var(--red)':'var(--muted)')+'"> '+(delta>0?'+':'')+delta+'</span>'):'';html+='<td style="padding:10px 6px;text-align:center;font-family:monospace;font-size:'+(isCur?'14px':'12px')+';font-weight:'+(isCur?'800':'400')+';color:'+(val!==null?(isCur?'var(--blue)':'#aaa'):'#333')+'">'+(val!==null?val+'<br>'+dStr:'—')+'</td>';}
+    html+='</tr></tbody></table></div>';
+    var maxRM=0;hke.concat(hlp).forEach(function(v){if(v&&v>maxRM)maxRM=v;});
+    if(maxRM>0){
+      html+='<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px"><div style="font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:10px">Progress Bars</div>';
+      ['ke','lp'].forEach(function(ex){
+        var hist=ex==='ke'?hke:hlp;var col=ex==='ke'?'var(--lime)':'var(--blue)';var lbl=ex==='ke'?'Knee Extension':'Leg Press';
+        html+='<div style="margin-bottom:10px"><div style="font-size:10px;font-weight:700;color:'+col+';margin-bottom:5px">'+lbl+'</div><div style="display:flex;align-items:flex-end;gap:4px;height:50px">';
+        for(var w=1;w<=6;w++){var val=hist[w-1];var h=val?Math.max(8,Math.round((val/maxRM)*46)):4;var isCur=w===wkNum;html+='<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px"><div style="width:100%;height:'+h+'px;background:'+(val?(isCur?col:'rgba(255,255,255,.15)'):'#1e1e1e')+';border-radius:3px 3px 0 0;transition:height .3s"></div><div style="font-size:8px;color:'+(isCur?col:'var(--muted)')+'">W'+w+'</div></div>';}
+        html+='</div></div>';
       });
-      y += 10;
-    });
-
-    // Notes
-    if (info.notes) {
-      doc.setFontSize(8);
-      doc.setTextColor(100, 100, 100);
-      doc.setFont("helvetica", "bold");
-      doc.text("CLINICAL NOTES", L, y);
-      y += 14;
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(10);
-      doc.setTextColor(200, 200, 200);
-      const noteLines = doc.splitTextToSize(info.notes, R - L);
-      doc.text(noteLines, L, y);
+      html+='</div>';
     }
+    html+='<div style="font-size:10px;color:#333;line-height:1.7;margin-top:4px">Data carries forward via QR code on each PDF export.<br><span style="color:var(--lime)">●</span> = current week</div>';
+  }
+  var el=document.getElementById("histContent");
+  if(el)el.innerHTML=html;
+}
 
-    // Footer
-    doc.setDrawColor(40, 40, 40);
-    doc.line(L, H - 48, R, H - 48);
-    doc.setFontSize(7);
-    doc.setTextColor(80, 80, 80);
-    doc.text("TRM APRE Calculator — Clinician Reference Copy", L, H - 36);
-    doc.text("https://trm-apre.vercel.app/", R - doc.getTextWidth("https://trm-apre.vercel.app/"), H - 36);
+// ── TIMELINE ──────────────────────────────────────────────────────────────────
+function drawTimeline(){
+  var pm={"APRE 10":"apre10","APRE 6":"apre6","APRE 3":"apre3"};
+  var el=document.getElementById("tlContent");
+  if(!el)return;
+  el.innerHTML=TL.map(function(t,i){
+    var cur=pm[t.l]===proto;
+    return '<div class="tlrow">'
+      +'<div class="tlspine"><div class="tldot" style="background:'+t.c+';box-shadow:0 0 7px '+t.c+'55"></div>'+(i<TL.length-1?'<div class="tlline"></div>':'')+'</div>'
+      +'<div class="tlcard'+(cur?' cur':'')+'">'
+      +'<div class="tltop"><span class="tltitle" style="color:'+t.c+'">'+t.l+'</span><span class="tlwk" style="color:'+t.c+'77">'+t.w+'</span></div>'
+      +(cur?'<div class="tlpill">Current Protocol</div>':'')
+      +'<div class="chips">'+t.items.map(function(i){return'<span class="chip">'+i+'</span>';}).join('')+'</div>'
+      +'<div class="tlnote">'+t.note+'</div>'
+      +'</div></div>';
+  }).join('');
+}
 
-    // ─── PAGE 2: Patient Take-Home ───
-    doc.addPage();
-    doc.setFillColor(255, 255, 255);
-    doc.rect(0, 0, W, H, "F");
+// ── REFERENCE ─────────────────────────────────────────────────────────────────
+function drawRef(){
+  var cols={apre10:"#b8ff57",apre6:"#fbbf24",apre3:"#f87171"};
+  function zc(z){return z==="up"?"#b8ff57":z==="dn"?"#f87171":"#fbbf24";}
+  function al(z,d){return z==="sa"?"Hold":z==="up"?"+"+d[0]+"-"+d[1]+" lbs":d[0]+" to "+d[1]+" lbs";}
+  function aln(z,n){return z==="sa"?"Hold":z==="up"?"+"+n[0]+"-"+n[1]+" lbs":n[0]+" to "+n[1]+" lbs";}
+  var el=document.getElementById("refContent");
+  if(!el)return;
+  el.innerHTML=["apre10","apre6","apre3"].map(function(pk){
+    var pp=PROTO[pk],c=cols[pk];
+    return '<div class="refblk">'
+      +'<div class="refhd"><div class="refdot" style="background:'+c+'"></div>'
+      +'<span style="font-size:12px;font-weight:800;color:'+c+'">'+pp.name+'</span>'
+      +'<span style="font-size:10px;color:var(--muted)"> -- '+pp.phase+'</span></div>'
+      +'<div class="refsub">Set 3 Reps -- Set 4 Load</div>'
+      +'<div class="reftbl">'+pp.s3.map(function(a){return'<div class="refrow"><span class="refreps">'+a.l+' reps</span><span class="refadj" style="color:'+zc(a.z)+';background:'+zc(a.z)+'18">'+al(a.z,a.d)+'</span></div>';}).join('')+'</div>'
+      +'<div class="refsub">Set 4 Reps -- Next Session</div>'
+      +'<div class="reftbl">'+pp.s4.map(function(a){return'<div class="refrow"><span class="refreps">'+a.l+' reps</span><span class="refadj" style="color:'+zc(a.z)+';background:'+zc(a.z)+'18">'+aln(a.z,a.n)+'</span></div>';}).join('')+'</div>'
+      +'</div>';
+  }).join('');
+}
 
-    // Header
-    doc.setFillColor(245, 245, 245);
-    doc.rect(0, 0, W, 44, "F");
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(16);
-    doc.setTextColor(20, 20, 20);
-    doc.text("TRM", L, 28);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.setTextColor(120, 120, 120);
-    doc.text("APRE Exercise Card — Patient Copy", L + 45, 28);
-    doc.text(today, R - doc.getTextWidth(today), 28);
+// ── FAB / SHEET ───────────────────────────────────────────────────────────────
+function updateFab(){
+  var hasData=!!(S.ke.rm||S.lp.rm);
+  var fab=document.getElementById("fab");
+  if(fab){hasData?fab.classList.add("ready"):fab.classList.remove("ready");}
+}
+function openSheet(){
+  var hasData=!!(S.ke.rm||S.lp.rm);
+  document.getElementById("sheet_nodata").classList.toggle("hidden",hasData);
+  document.getElementById("sheet_form").classList.toggle("hidden",!hasData);
+  document.getElementById("overlay").style.opacity="1";
+  document.getElementById("overlay").style.pointerEvents="auto";
+  document.getElementById("sheet").classList.add("open");
+}
+function closeSheet(){
+  document.getElementById("overlay").style.opacity="0";
+  document.getElementById("overlay").style.pointerEvents="none";
+  document.getElementById("sheet").classList.remove("open");
+}
 
-    y = 64;
+// ── PROTO / TAB ───────────────────────────────────────────────────────────────
+function setProto(p){
+  proto=p;
+  document.getElementById("p10").classList.toggle("on",p==="apre10");
+  document.getElementById("p6").classList.toggle("on",p==="apre6");
+  document.getElementById("p3").classList.toggle("on",p==="apre3");
+  document.getElementById("phLbl").textContent=PROTO[p].phase;
+  document.getElementById("phWk").textContent=PROTO[p].wk;
+  calc("ke");calc("lp");drawTimeline();drawRef();
+}
+function goTab(t,el){
+  ["calc","workouts","history","timeline","ref"].forEach(function(x){document.getElementById("tab_"+x).classList.add("hidden");});
+  document.querySelectorAll(".nb").forEach(function(b){b.classList.remove("on");});
+  document.getElementById("tab_"+t).classList.remove("hidden");
+  el.classList.add("on");
+  if(t==="history")drawHistory();
+}
+function resetAll(){
+  ["ke","lp"].forEach(function(ex){
+    ["ww","s3","s4"].forEach(function(f){document.getElementById(ex+"_"+f).value="";});
+    [ex+"_s4rec",ex+"_s4g",ex+"_next",ex+"_rmb"].forEach(function(id){document.getElementById(id).classList.add("hidden");});
+    S[ex]={ww:null,s3r:null,s4r:null,s4w:null,rm:null,nextw:null};
+    drawSets(ex,0);
+  });
+  document.getElementById("resetBtn").classList.add("hidden");
+  document.getElementById("w_empty").classList.remove("hidden");
+  document.getElementById("w_content").classList.add("hidden");
+  updateFab();
+}
 
-    if (info.ptName) {
-      doc.setFontSize(11);
-      doc.setTextColor(30, 30, 30);
-      doc.setFont("helvetica", "bold");
-      doc.text(info.ptName, L, y);
-      y += 16;
+// ── PDF ───────────────────────────────────────────────────────────────────────
+async function genPDF(){
+  if(typeof window.jspdf==='undefined'){alert("PDF library not loaded.");return;}
+  var jsPDF=window.jspdf.jsPDF;
+  var pp=PROTO[proto];
+  var keRM=S.ke.rm,lpRM=S.lp.rm;
+  var hasKE=!!keRM,hasLP=!!lpRM;
+  if(!keRM&&!lpRM){alert("Complete the APRE calculator first.");return;}
+  var patCode=document.getElementById("s_name").value||"PT-???";
+  var patDate=document.getElementById("s_date").value||(new Date().toLocaleDateString());
+  var wkOfBlock=document.getElementById("s_weeks").value||SESSION.currentWeek;
+  var therapist=document.getElementById("s_therapist").value||"--";
+  var qrURL=buildQRPayload();
+  var qrDataURL=await makeQRDataURL(qrURL);
+  var doc=new jsPDF({orientation:"portrait",unit:"mm",format:"letter"});
+  var W=215.9,H=279.4;
+  var BLK=[10,10,10],DRK=[18,18,18],LIM=[184,255,87],LID=[142,212,60];
+  var WHT=[255,255,255],MUT=[120,120,120],BRD=[50,50,50],BLU=[56,189,248];
+  var GLD=[251,191,36],RED=[248,113,113],CRD=[28,28,28];
+  function sRGB(a){doc.setTextColor(a[0],a[1],a[2]);}
+  function sFill(a){doc.setFillColor(a[0],a[1],a[2]);}
+  function sDraw(a){doc.setDrawColor(a[0],a[1],a[2]);}
+  function drawFooter(pgNum,total,isClinic){
+    sFill([15,15,15]);doc.rect(0,H-12,W,12,"F");
+    sFill(LIM);doc.rect(0,H-12,W,0.3,"F");
+    doc.setFontSize(6.5);doc.setFont("helvetica","bold");sRGB(WHT);doc.text("TRM",14,H-5.5);
+    doc.setFont("helvetica","normal");sRGB(MUT);
+    var mid=isClinic?"APRE Progressive Loading  |  ACL Rehabilitation  |  Not a substitute for clinical judgment":"Questions about your program? Contact your therapist before modifying any loads.";
+    doc.text(mid,W/2,H-5.5,"center");
+    doc.text(pgNum+" / "+total,W-14,H-5.5,"right");
+  }
+  // PAGE 1
+  sFill(BLK);doc.rect(0,0,W,H,"F");
+  sFill(DRK);doc.rect(0,0,W,36,"F");
+  sFill(LIM);doc.rect(0,35.5,W,0.5,"F");
+  doc.setFont("helvetica","bold");doc.setFontSize(26);sRGB(WHT);doc.text("TRM",14,22);
+  sFill(LIM);doc.rect(36,10,1.5,16,"F");
+  sFill([40,60,20]);doc.roundedRect(40,13,18,9,2,2,"F");
+  doc.setFontSize(7);sRGB(LIM);doc.text("APRE",49,19,"center");
+  doc.setFontSize(8);doc.setFont("helvetica","normal");sRGB(MUT);doc.text("CLINICIAN SUMMARY",W-14,14,"right");
+  doc.setFontSize(7);doc.text("TRM Progressive Resistance Loading",W-14,19,"right");
+  doc.text("ACL Rehabilitation Protocol",W-14,23.5,"right");
+  sFill([35,50,15]);doc.roundedRect(W-60,27,46,6,1.5,1.5,"F");
+  sDraw(LID);doc.setLineWidth(0.3);doc.roundedRect(W-60,27,46,6,1.5,1.5,"S");
+  doc.setFontSize(6.5);doc.setFont("helvetica","bold");sRGB(LIM);
+  doc.text(pp.name+" -- "+pp.phase,W-37,31.2,"center");
+  var y=44;
+  sFill(DRK);doc.roundedRect(14,y,W-28,18,2,2,"F");
+  sDraw(BRD);doc.setLineWidth(0.3);doc.roundedRect(14,y,W-28,18,2,2,"S");
+  sFill(LIM);doc.roundedRect(14,y,3,18,1,1,"F");
+  var infoW=(W-28)/4;
+  ["CODE","DATE","BLOCK WEEK","THERAPIST"].forEach(function(lb,i){
+    var x=17+6+infoW*i;
+    doc.setFontSize(6);doc.setFont("helvetica","bold");sRGB(MUT);doc.text(lb,x,y+7);
+    doc.setFontSize(9.5);doc.setFont("helvetica","bold");sRGB(WHT);
+    doc.text([patCode,patDate,"Week "+wkOfBlock+" / 6",therapist][i],x,y+14);
+  });
+  y+=24;
+  doc.setFontSize(7.5);doc.setFont("helvetica","bold");sRGB(MUT);doc.text("TODAY'S RESULTS",14,y);
+  sFill([35,35,35]);doc.rect(14,y+2,W-28,0.3,"F");y+=8;
+  function drawResultCard(ex,rm,sx,cardW){
+    var col=ex==="ke"?LIM:BLU;var lbl=ex==="ke"?"KNEE EXTENSION":"LEG PRESS / SHUTTLE";
+    var se=S[ex];var CARDH=76;
+    var adjZ=null,adjLbl="",adjCol=MUT;
+    if(se.s4r!==null){var a4=adjR(pp.s4,se.s4r);adjZ=a4.z;}
+    else if(se.s3r!==null){var a3r=adjR(pp.s3,se.s3r);adjZ=a3r.z;}
+    if(adjZ==="up"){adjLbl="INCREASE";adjCol=LIM;}
+    else if(adjZ==="dn"){adjLbl="REDUCE";adjCol=RED;}
+    else if(adjZ==="sa"){adjLbl="HOLD";adjCol=GLD;}
+    sFill([22,22,22]);doc.roundedRect(sx,y,cardW,CARDH,2,2,"F");
+    sDraw(col);doc.setLineWidth(0.5);doc.roundedRect(sx,y,cardW,CARDH,2,2,"S");
+    sFill(col);doc.roundedRect(sx,y,cardW,7,2,2,"F");doc.roundedRect(sx,y+3,cardW,4,0,0,"F");
+    doc.setFontSize(6.5);doc.setFont("helvetica","bold");doc.setTextColor(0,0,0);doc.text(lbl,sx+cardW/2,y+5.2,"center");
+    var cy=y+12;
+    doc.setFontSize(6);doc.setFont("helvetica","bold");sRGB(MUT);doc.text("NEXT SESSION — SET 3 WORKING WEIGHT",sx+5,cy);cy+=6;
+    var nwText=se.nextw?fw(se.nextw)+" lbs":"—";
+    doc.setFontSize(24);doc.setFont("helvetica","bold");doc.setTextColor(col[0],col[1],col[2]);doc.text(nwText,sx+5,cy+9);
+    if(adjZ){var badgeX=sx+cardW-5;doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(adjCol[0],adjCol[1],adjCol[2]);doc.text(adjLbl,badgeX,cy+6,"right");doc.setFontSize(6.5);doc.setFont("helvetica","normal");sRGB(MUT);doc.text("next session",badgeX,cy+11,"right");}
+    cy+=17;sFill([40,40,40]);doc.rect(sx+4,cy,cardW-8,0.3,"F");cy+=5;
+    doc.setFontSize(6);doc.setFont("helvetica","bold");sRGB(MUT);doc.text("ESTIMATED 1RM",sx+5,cy);cy+=4;
+    doc.setFontSize(13);doc.setFont("helvetica","bold");doc.setTextColor(col[0],col[1],col[2]);doc.text(fw(rm)+" lbs",sx+5,cy+2);cy+=10;
+    sFill([16,16,16]);doc.rect(sx+1,cy,cardW-2,16,"F");
+    var stats=[["WKG WT",fw(se.ww)+" lbs"],["S3 REPS",se.s3r!==null?se.s3r+" reps":"—"],["S4 WT",fw(se.s4w)+" lbs"],["S4 REPS",se.s4r!==null?se.s4r+" reps":"—"]];
+    var sw=(cardW-2)/4;
+    stats.forEach(function(st,i){var bx=sx+1+sw*i;if(i>0){sFill([35,35,35]);doc.rect(bx,cy,0.3,16,"F");}doc.setFontSize(5);doc.setFont("helvetica","bold");sRGB(MUT);doc.text(st[0],bx+sw/2,cy+5.5,"center");doc.setFontSize(8);doc.setFont("helvetica","bold");sRGB(WHT);doc.text(st[1],bx+sw/2,cy+12,"center");});
+  }
+  if(hasKE&&hasLP){var cw2=(W-30)/2;drawResultCard("ke",keRM,14,cw2);drawResultCard("lp",lpRM,14+cw2+2,cw2);}
+  else if(hasKE){drawResultCard("ke",keRM,14,W-28);}
+  else{drawResultCard("lp",lpRM,14,W-28);}
+  y+=82;
+  doc.setFontSize(7.5);doc.setFont("helvetica","bold");sRGB(MUT);doc.text("WEEK AHEAD",14,y);
+  sFill([35,35,35]);doc.rect(14,y+2,W-28,0.3,"F");y+=8;
+  var wkW=(W-30)/2;
+  function drawWeekCard(sx,wkW,label,tag,pct,keLoad,lpLoad){
+    var cardH=36;sFill([18,18,18]);doc.roundedRect(sx,y,wkW,cardH,2,2,"F");sDraw([40,40,40]);doc.setLineWidth(0.3);doc.roundedRect(sx,y,wkW,cardH,2,2,"S");
+    sFill([28,28,28]);doc.roundedRect(sx,y,wkW,12,2,2,"F");doc.roundedRect(sx,y+8,wkW,4,0,0,"F");
+    doc.setFontSize(6.5);doc.setFont("helvetica","bold");sRGB(WHT);doc.text(label,sx+5,y+7);
+    doc.setFontSize(5.5);doc.setFont("helvetica","normal");sRGB(MUT);doc.text(tag,sx+wkW-4,y+7,"right");
+    doc.setFontSize(5.5);doc.setFont("helvetica","bold");sRGB(MUT);doc.text("INTENSITY",sx+5,y+16);
+    doc.setFontSize(11);doc.setFont("helvetica","bold");sRGB(GLD);doc.text(pct,sx+5,y+22);
+    if(keLoad){doc.setFontSize(5.5);doc.setFont("helvetica","bold");sRGB(MUT);doc.text("KE",sx+wkW/2+2,y+16);doc.setFontSize(10);doc.setFont("helvetica","bold");doc.setTextColor(LIM[0],LIM[1],LIM[2]);doc.text(keLoad,sx+wkW/2+2,y+22);}
+    if(lpLoad){var lpX=keLoad?sx+wkW-4:sx+wkW/2+2;doc.setFontSize(5.5);doc.setFont("helvetica","bold");sRGB(MUT);doc.text("LP",lpX,y+16,keLoad?"right":"left");doc.setFontSize(10);doc.setFont("helvetica","bold");doc.setTextColor(BLU[0],BLU[1],BLU[2]);doc.text(lpLoad,lpX,y+22,keLoad?"right":"left");}
+    doc.setFontSize(5.5);doc.setFont("helvetica","normal");sRGB(MUT);var setsText=label.indexOf("2")>=0?pp.w2s:pp.w3s;doc.text(setsText,sx+5,y+30);
+    doc.setFontSize(5);doc.setFont("helvetica","italic");sRGB([60,60,60]);var tempoRaw=label.indexOf("2")>=0?"Not to failure":pp.w3t;var tempoTxt=tempoRaw.length>18?tempoRaw.substring(0,17)+"…":tempoRaw;doc.text(tempoTxt,sx+wkW-4,y+30,"right");
+  }
+  drawWeekCard(14,wkW,"WORKOUT 2 — MID-WEEK","Volume",Math.round(pp.w2p*100)+"%",hasKE?fw(r5(keRM*pp.w2p))+" lbs":null,hasLP?fw(r5(lpRM*pp.w2p))+" lbs":null);
+  drawWeekCard(14+wkW+2,wkW,"WORKOUT 3 — END OF WEEK","Consolidation",Math.round(pp.w3p*100)+"%",hasKE?fw(r5(keRM*pp.w3p))+" lbs":null,hasLP?fw(r5(lpRM*pp.w3p))+" lbs":null);
+  y+=40;
+  doc.setFontSize(7.5);doc.setFont("helvetica","bold");sRGB(MUT);doc.text("CLINICAL NOTES",14,y);
+  sFill([35,35,35]);doc.rect(14,y+2,W-28,0.3,"F");y+=8;
+  sFill([18,18,18]);doc.roundedRect(14,y,W-28,30,2,2,"F");sDraw([40,40,40]);doc.setLineWidth(0.3);doc.roundedRect(14,y,W-28,30,2,2,"S");
+  for(var i=0;i<3;i++){sFill([40,40,40]);doc.rect(20,y+8+(i*8),W-40,0.3,"F");}y+=38;
+  doc.setFontSize(6.5);doc.setFont("helvetica","normal");sRGB(MUT);doc.text("Therapist Signature",14,y+5);sFill([50,50,50]);doc.rect(14,y+7,88,0.3,"F");doc.text("Date",110,y+5);doc.rect(110,y+7,55,0.3,"F");
+  drawFooter("1","?",true);
+  // ATHLETE PAGES
+  function getAdjNote(ex){var se=S[ex];if(!se||se.s4r===null)return null;var a4=adjR(pp.s4,se.s4r);if(a4.z==="up")return"Great session — you progressed. Loads have been increased for next week.";if(a4.z==="dn")return"Today indicated a deload is appropriate. Reduced loads will support recovery.";return"Solid session — loads held steady to consolidate your strength gains.";}
+  var athletePageCount=0;
+  function newAthletePage(){
+    doc.addPage();athletePageCount++;
+    sFill(BLK);doc.rect(0,0,W,H,"F");sFill(DRK);doc.rect(0,0,W,32,"F");sFill(LIM);doc.rect(0,31.5,W,0.5,"F");sFill(LIM);doc.rect(0,0,4,32,"F");
+    if(athletePageCount===1){doc.setFontSize(20);doc.setFont("helvetica","bold");sRGB(WHT);doc.text("YOUR TRAINING PLAN",8,15);doc.setFontSize(8);doc.setFont("helvetica","normal");sRGB(LIM);doc.text("Personalized ACL strength program based on today's APRE testing.",8,22);doc.setFontSize(7);sRGB(MUT);doc.text(patCode+"  |  "+patDate+"  |  Block Week "+wkOfBlock+" / 6  |  "+pp.name,8,28);}
+    else{doc.setFontSize(14);doc.setFont("helvetica","bold");sRGB(WHT);doc.text("YOUR TRAINING PLAN",8,14);doc.setFontSize(7);doc.setFont("helvetica","normal");sRGB(MUT);doc.text(patCode+"  |  "+patDate+"  |  "+pp.name,8,22);doc.setFontSize(7);sRGB(LIM);doc.text("Continued...",8,28);}
+    y=38;drawFooter("?","?",false);
+  }
+  function needRoom(needed){if(y+needed>H-16){newAthletePage();}}
+  function wCard(dayLbl,dayTag,intensity,rows2,note){
+    var est=16+rows2.length*11+(note?9:0)+7;needRoom(est);var sy=y;
+    sFill([22,36,8]);doc.roundedRect(14,y,W-28,16,2,2,"F");doc.roundedRect(14,y+11,W-28,5,0,0,"F");sDraw([55,95,18]);doc.setLineWidth(0.4);doc.roundedRect(14,y,W-28,16,2,2,"S");
+    var maxLblW=W-28-35;doc.setFont("helvetica","bold");var lblSize=9;doc.setFontSize(lblSize);sRGB(LIM);if(doc.getTextWidth(dayLbl)>maxLblW){doc.setFontSize(8);}doc.text(dayLbl,18,y+8);
+    doc.setFontSize(6);doc.setFont("helvetica","normal");sRGB(LID);doc.text(dayTag,18,y+14);
+    doc.setFontSize(7);doc.setFont("helvetica","bold");sRGB(LIM);doc.text(intensity,W-16,y+8,"right");
+    y+=20;
+    rows2.forEach(function(row,i){
+      var isPrimary=row.type==="ke"||row.type==="lp";var isComp=row.type==="companion";
+      if(isComp){sFill(i%2===0?[26,21,8]:[22,18,7]);}else{sFill(i%2===0?[14,14,14]:[19,19,19]);}
+      doc.rect(14,y,W-28,11,"F");
+      if(isComp){sFill(GLD);doc.rect(14,y,2.5,11,"F");doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(GLD[0],GLD[1],GLD[2]);doc.text(row.name,20,y+6);doc.setFontSize(6.5);doc.setFont("helvetica","normal");sRGB(MUT);doc.text(row.detail,20,y+10);}
+      else{var dc=row.type==="ke"?LIM:BLU;sFill(dc);doc.roundedRect(17,y+3.5,3,3,0.5,0.5,"F");doc.setFontSize(8.5);doc.setFont("helvetica","bold");sRGB(WHT);doc.text(row.name,23,y+6);doc.setFontSize(6.5);doc.setFont("helvetica","normal");sRGB(MUT);doc.text(row.detail,23,y+10);}
+      var loadTxt=row.load||"";
+      if(!loadTxt&&row.pct){var baseRM=row.base==="ke"?keRM:lpRM;if(baseRM){loadTxt=fw(r5(baseRM*row.pct))+" lbs";}else{loadTxt=Math.round(row.pct*100)+"% 1RM";}}
+      if(loadTxt){doc.setFontSize(isPrimary?10:9);doc.setFont("helvetica","bold");if(row.type==="ke"){sRGB(LIM);}else if(row.type==="lp"){sRGB(BLU);}else{doc.setTextColor(GLD[0],GLD[1],GLD[2]);}doc.text(loadTxt,W-16,y+7,"right");}
+      y+=11;
+    });
+    if(note){sFill([13,13,13]);doc.rect(14,y,W-28,9,"F");sFill(LID);doc.rect(14,y,2.5,9,"F");doc.setFontSize(6.5);doc.setFont("helvetica","italic");sRGB([145,185,95]);doc.text(note,19,y+6);y+=9;}
+    sDraw([38,38,38]);doc.setLineWidth(0.3);doc.roundedRect(14,sy,W-28,y-sy,2,2,"S");y+=7;
+  }
+  newAthletePage();
+  var keNote=getAdjNote("ke"),lpNote=getAdjNote("lp"),perfNote=keNote||lpNote||"";
+  if(perfNote){needRoom(16);sFill([16,26,6]);doc.roundedRect(14,y,W-28,14,2,2,"F");sDraw([50,80,20]);doc.setLineWidth(0.3);doc.roundedRect(14,y,W-28,14,2,2,"S");sFill(LIM);doc.rect(14,y,3,14,"F");doc.setFontSize(6.5);doc.setFont("helvetica","bold");sRGB(LIM);doc.text("BASED ON TODAY'S APRE RESULTS",20,y+5.5);doc.setFontSize(7);doc.setFont("helvetica","normal");sRGB([175,210,130]);doc.text(perfNote,20,y+11);y+=20;}
+  var w1rows=[];
+  if(hasKE)w1rows.push({type:"ke",name:"Knee Extension",detail:"Set 1: "+pp.s1r+" reps @ 50%   Set 2: "+pp.s2r+" reps @ 75%   Sets 3 & 4: max reps to failure",load:""});
+  if(hasLP)w1rows.push({type:"lp",name:"Leg Press / Shuttle",detail:"Set 1: "+pp.s1r+" reps @ 50%   Set 2: "+pp.s2r+" reps @ 75%   Sets 3 & 4: max reps to failure",load:""});
+  wCard("WORKOUT 1 — APRE TESTING SESSION","Primary testing day — therapist directed","Autoregulated",w1rows,"Therapist sets Set 3 working weight. Sets 3 & 4 are taken to failure. Loads adjust automatically.");
+  var w2rows=[];
+  if(hasKE)w2rows.push({type:"ke",name:"Knee Extension",detail:pp.w2s+"   "+Math.round(pp.w2p*100)+"% of your 1RM — do NOT go to failure",load:fw(r5(keRM*pp.w2p))+" lbs"});
+  if(hasLP)w2rows.push({type:"lp",name:"Leg Press / Shuttle",detail:pp.w2s+"   "+Math.round(pp.w2p*100)+"% of your 1RM — do NOT go to failure",load:fw(r5(lpRM*pp.w2p))+" lbs"});
+  pp.w2companions.forEach(function(c){w2rows.push({type:"companion",name:c.name,detail:c.detail,load:c.load||null,pct:c.pct||null,base:c.base||null});});
+  wCard("WORKOUT 2 — MID-WEEK","Posterior chain & volume day",""+Math.round(pp.w2p*100)+"% 1RM",w2rows,"Complete the KE/LP sets first, then companions. Rest 90 sec. Controlled reps — form over load.");
+  var w3rows=[];
+  if(hasKE)w3rows.push({type:"ke",name:"Knee Extension",detail:pp.w3s+"   "+Math.round(pp.w3p*100)+"% of your 1RM   "+pp.w3t,load:fw(r5(keRM*pp.w3p))+" lbs"});
+  if(hasLP)w3rows.push({type:"lp",name:"Leg Press / Shuttle",detail:pp.w3s+"   "+Math.round(pp.w3p*100)+"% of your 1RM   "+pp.w3t,load:fw(r5(lpRM*pp.w3p))+" lbs"});
+  pp.w3companions.forEach(function(c){w3rows.push({type:"companion",name:c.name,detail:c.detail,load:c.load||null,pct:c.pct||null,base:c.base||null});});
+  wCard("WORKOUT 3 — END OF WEEK","Strength consolidation day",""+Math.round(pp.w3p*100)+"% 1RM",w3rows,"Slightly heavier than Workout 2 — still not to failure. Prioritize tempo and full range of motion.");
+  needRoom(28);sFill([20,20,10]);doc.roundedRect(14,y,W-28,26,2,2,"F");sDraw([80,80,30]);doc.setLineWidth(0.3);doc.roundedRect(14,y,W-28,26,2,2,"S");doc.setFontSize(7.5);doc.setFont("helvetica","bold");sRGB(GLD);doc.text("IMPORTANT REMINDERS",18,y+7);doc.setFontSize(7);doc.setFont("helvetica","normal");sRGB([200,190,140]);doc.text("Warm up 5-10 min before each session (bike, walk, or as directed by your therapist).",18,y+13);doc.text("Stop if you experience sharp pain. Mild muscle fatigue is normal — joint pain is not.",18,y+19);doc.text("Contact your therapist if something feels wrong or weights seem too heavy or too light.",18,y+25);y+=32;
+  needRoom(50);var qrBoxH=46;sFill([8,14,4]);doc.roundedRect(14,y,W-28,qrBoxH,2,2,"F");sDraw([50,90,20]);doc.setLineWidth(0.4);doc.roundedRect(14,y,W-28,qrBoxH,2,2,"S");sFill(LIM);doc.rect(14,y,3.5,qrBoxH,"F");
+  doc.setFontSize(8);doc.setFont("helvetica","bold");sRGB(LIM);doc.text("SCAN FOR NEXT SESSION",22,y+8);doc.setFontSize(6.5);doc.setFont("helvetica","normal");sRGB([175,215,130]);doc.text("Scan this QR code on Week "+(parseInt(wkOfBlock)+1)+" to pre-load carry-forward weights",22,y+14);doc.setFontSize(6);sRGB(MUT);doc.text("No patient data is stored — codes contain only weights and protocol.",22,y+19);
+  var nextWk=parseInt(wkOfBlock)+1;
+  if(nextWk<=6){var keNext=S.ke.nextw?fw(S.ke.nextw)+" lbs":"--";var lpNext=S.lp.nextw?fw(S.lp.nextw)+" lbs":"--";doc.setFontSize(7);doc.setFont("helvetica","bold");if(hasKE){sRGB(LIM);doc.text("Wk "+nextWk+" KE Set 3: "+keNext,22,y+27);}if(hasLP){sRGB(BLU);doc.text("Wk "+nextWk+" LP Set 3: "+lpNext,22,y+(hasKE?33:27));}}
+  else{doc.setFontSize(7);doc.setFont("helvetica","bold");sRGB(GLD);doc.text("Block complete! Reassess protocol — consider advancing to "+(proto==="apre10"?"APRE 6":proto==="apre6"?"APRE 3":"RTS testing")+".",22,y+27);}
+  if(qrDataURL){try{var qrSize=36;var qrX=W-14-qrSize;var qrY=y+(qrBoxH-qrSize)/2;sFill([255,255,255]);doc.roundedRect(qrX-1,qrY-1,qrSize+2,qrSize+2,1,1,"F");doc.addImage(qrDataURL,"PNG",qrX,qrY,qrSize,qrSize);}catch(e){}}
+  else{doc.setFontSize(5.5);doc.setFont("helvetica","normal");sRGB(MUT);var shortUrl=qrURL.length>60?qrURL.substring(0,57)+"...":qrURL;doc.text("URL: "+shortUrl,22,y+39);}
+  y+=qrBoxH+4;
+  var totalPg=1+athletePageCount;var pageInfo=doc.internal.getNumberOfPages();
+  for(var pg=1;pg<=pageInfo;pg++){doc.setPage(pg);doc.setFontSize(6.5);doc.setFont("helvetica","normal");sRGB(MUT);doc.text(pg+" / "+totalPg,W-14,H-5.5,"right");}
+  closeSheet();var blob=doc.output("blob");window.open(URL.createObjectURL(blob),"_blank");
+}
+
+// ── CSS ───────────────────────────────────────────────────────────────────────
+const CSS = `
+:root{--lime:#b8ff57;--lime-dim:#8ed43c;--black:#0a0a0a;--dark:#111111;--card:#181818;--border:#2a2a2a;--muted:#555555;--white:#ffffff;--gold:#fbbf24;--red:#f87171;--blue:#38bdf8}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none}
+input[type=number]{-moz-appearance:textfield}
+.apre-wrap{background:var(--black);color:var(--white);font-family:-apple-system,'SF Pro Text',system-ui,sans-serif;max-width:430px;margin:0 auto;min-height:100vh;padding-bottom:110px}
+.hdr{background:var(--dark);border-bottom:1px solid var(--border);padding:48px 20px 0;position:sticky;top:0;z-index:100}
+.logo-row{display:flex;align-items:center;gap:10px;margin-bottom:3px}
+.logo-text{font-family:'Arial Black',sans-serif;font-weight:900;font-size:24px;color:var(--white)}
+.logo-bar{width:3px;height:24px;border-radius:2px;background:linear-gradient(180deg,var(--lime),var(--lime-dim))}
+.logo-pill{font-size:10px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--lime);background:rgba(184,255,87,.1);border:1px solid rgba(184,255,87,.22);border-radius:4px;padding:2px 7px}
+.hdr-sub{font-size:10px;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;margin-bottom:13px;font-weight:600}
+.proto-row{display:flex;gap:6px}
+.pill{flex:1;border:1px solid var(--border);border-radius:6px;padding:8px 4px;cursor:pointer;background:var(--card);text-align:center;transition:all .15s}
+.pill.on{border-color:var(--lime);background:rgba(184,255,87,.07)}
+.pill-name{font-size:12px;font-weight:800;color:var(--muted)}
+.pill.on .pill-name{color:var(--lime)}
+.pill-wk{font-size:9px;color:var(--muted);margin-top:2px}
+.pill.on .pill-wk{color:var(--lime-dim)}
+.nav{display:flex;border-top:1px solid var(--border);margin-top:12px}
+.nb{flex:1;border:none;cursor:pointer;padding:10px 0;background:transparent;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border-bottom:2px solid transparent;color:var(--muted);transition:all .15s}
+.nb.on{color:var(--lime);border-bottom-color:var(--lime)}
+.content{padding:16px 20px 0}
+.phase-badge{background:rgba(184,255,87,.05);border:1px solid rgba(184,255,87,.15);border-radius:7px;padding:8px 11px;margin-bottom:13px;display:flex;justify-content:space-between;align-items:center}
+.phase-lbl{font-size:12px;font-weight:600;color:var(--lime)}
+.phase-wk{font-size:10px;color:var(--lime-dim)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;margin-bottom:12px;overflow:hidden}
+.ke-card{border-color:rgba(184,255,87,.28);box-shadow:0 0 18px rgba(184,255,87,.04)}
+.lp-card{border-color:rgba(56,189,248,.28);box-shadow:0 0 18px rgba(56,189,248,.04)}
+.ch{padding:10px 15px;background:#161616;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.ke-card .ch{background:linear-gradient(90deg,rgba(184,255,87,.07),transparent);border-bottom-color:rgba(184,255,87,.15)}
+.lp-card .ch{background:linear-gradient(90deg,rgba(56,189,248,.07),transparent);border-bottom-color:rgba(56,189,248,.15)}
+.ch-left{display:flex;align-items:center;gap:7px}
+.cbar{width:3px;height:13px;border-radius:2px}
+.ke-card .cbar{background:var(--lime)}
+.lp-card .cbar{background:var(--blue)}
+.ctitle{font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase}
+.ke-card .ctitle{color:var(--lime)}
+.lp-card .ctitle{color:var(--blue)}
+.cb{padding:14px 15px}
+.xbadge{font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;padding:3px 8px;border-radius:4px}
+.xbadge.ke{background:rgba(184,255,87,.12);color:var(--lime);border:1px solid rgba(184,255,87,.25)}
+.xbadge.lp{background:rgba(56,189,248,.12);color:var(--blue);border:1px solid rgba(56,189,248,.25)}
+.fld{margin-bottom:11px}
+.flbl{display:block;font-size:10px;font-weight:800;letter-spacing:.12em;color:var(--muted);text-transform:uppercase;margin-bottom:5px}
+.inp{background:#1c1c1c;border:1px solid #2e2e2e;border-radius:6px;padding:11px 12px;color:var(--white);font-size:17px;font-family:'SF Mono',monospace;width:100%;outline:none;transition:border-color .15s}
+.inp::placeholder{color:#2e2e2e}
+.inp.ke:focus{border-color:var(--lime)}
+.inp.lp:focus{border-color:var(--blue)}
+.div{height:1px;background:#1e1e1e;margin:12px 0}
+.st{width:100%;border-collapse:collapse}
+.st th{font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);padding:0 0 7px;text-align:left}
+.st th:not(:first-child){text-align:center}
+.st td{padding:7px 0;border-top:1px solid #1e1e1e;font-size:13px;color:#888}
+.st td:not(:first-child){text-align:center;font-family:'SF Mono',monospace}
+.st tr.hl td{color:var(--white)}
+.rb{background:#0f0f0f;border-radius:8px;padding:13px;margin-bottom:10px}
+.rb.ke{border:1px solid rgba(184,255,87,.2)}
+.rb.lp{border:1px solid rgba(56,189,248,.2)}
+.rl{font-size:9px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:7px}
+.rm2{display:flex;justify-content:space-between;align-items:center}
+.rw{font-size:32px;font-weight:800;font-family:'SF Mono',monospace;letter-spacing:-1px}
+.rs{font-size:11px;color:var(--muted);margin-top:2px}
+.rtag{font-size:10px;font-weight:800;letter-spacing:.06em;padding:5px 10px;border-radius:20px;text-transform:uppercase}
+.tup{background:rgba(184,255,87,.14);color:var(--lime)}
+.tsa{background:rgba(251,191,36,.14);color:var(--gold)}
+.tdn{background:rgba(248,113,113,.14);color:var(--red)}
+.rmbox{border-radius:7px;padding:10px 12px;margin-bottom:11px;display:flex;justify-content:space-between;align-items:center;background:#0a0a0a}
+.rmbox.ke{border:1px solid rgba(184,255,87,.18)}
+.rmbox.lp{border:1px solid rgba(56,189,248,.18)}
+.rml{font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.rmv{font-size:22px;font-weight:800;font-family:'SF Mono',monospace}
+.wcard{background:#0f0f0f;border:1px solid var(--border);border-radius:10px;padding:13px;margin-bottom:10px}
+.wday{font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--lime);margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
+.wtag{font-size:9px;background:rgba(184,255,87,.09);border:1px solid rgba(184,255,87,.18);border-radius:4px;padding:2px 7px;color:var(--lime-dim)}
+.xi{display:flex;align-items:flex-start;gap:9px;padding:8px 0;border-top:1px solid #1e1e1e}
+.xdot{width:5px;height:5px;border-radius:50%;flex-shrink:0;margin-top:5px}
+.xname{font-size:12px;color:var(--white);font-weight:600;flex:1;line-height:1.4}
+.xdet{font-size:10px;color:var(--muted);margin-top:1px}
+.xload{font-size:12px;font-family:'SF Mono',monospace;font-weight:700;flex-shrink:0}
+.tlrow{display:flex;gap:12px}
+.tlspine{display:flex;flex-direction:column;align-items:center}
+.tldot{width:11px;height:11px;border-radius:50%;flex-shrink:0;margin-top:3px}
+.tlline{width:1px;flex:1;background:#1e1e1e;margin-top:4px}
+.tlcard{flex:1;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:11px 13px;margin-bottom:8px}
+.tlcard.cur{border-color:rgba(184,255,87,.4);box-shadow:0 0 14px rgba(184,255,87,.06)}
+.tltop{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px}
+.tltitle{font-size:13px;font-weight:800}
+.tlwk{font-size:10px;font-family:'SF Mono',monospace}
+.tlpill{font-size:9px;font-weight:800;background:rgba(184,255,87,.1);border:1px solid rgba(184,255,87,.22);color:var(--lime);padding:2px 7px;border-radius:10px;display:inline-block;margin-bottom:6px}
+.chips{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:7px}
+.chip{font-size:9px;background:#1e1e1e;color:var(--muted);padding:3px 7px;border-radius:10px;border:1px solid var(--border)}
+.tlnote{font-size:11px;color:#444;line-height:1.5}
+.refblk{margin-bottom:20px}
+.refhd{display:flex;align-items:center;gap:7px;margin-bottom:7px}
+.refdot{width:7px;height:7px;border-radius:50%}
+.reftbl{background:var(--card);border-radius:8px;overflow:hidden;border:1px solid var(--border);margin-bottom:9px}
+.refrow{display:flex;justify-content:space-between;align-items:center;padding:9px 12px;border-bottom:1px solid #1e1e1e}
+.refrow:last-child{border-bottom:none}
+.refreps{font-size:12px;color:#666;font-family:'SF Mono',monospace}
+.refadj{font-size:11px;font-weight:700;padding:3px 9px;border-radius:10px}
+.refsub{font-size:9px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:5px}
+.stitle{font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:9px}
+.rbtn{width:100%;margin-top:6px;background:transparent;border:1px solid var(--border);border-radius:8px;padding:10px;color:var(--muted);font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.hidden{display:none!important}
+#fab{position:fixed;bottom:24px;right:20px;z-index:400;width:56px;height:56px;border-radius:50%;border:none;cursor:pointer;background:linear-gradient(135deg,#2a2a2a,#222);box-shadow:0 2px 8px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:2px;transition:background .3s,box-shadow .3s}
+#fab.ready{background:linear-gradient(135deg,#b8ff57,#8ed43c);box-shadow:0 4px 20px rgba(184,255,87,.35),0 2px 8px rgba(0,0,0,.6)}
+#fab svg{stroke:#555;transition:stroke .3s}
+#fab.ready svg{stroke:#0a0a0a}
+#fab .fabtxt{font-size:7px;font-weight:900;letter-spacing:.06em;color:#555;transition:color .3s}
+#fab.ready .fabtxt{color:#0a0a0a}
+#overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:500;opacity:0;pointer-events:none;transition:opacity .25s}
+#sheet{position:fixed;bottom:0;left:50%;transform:translateX(-50%) translateY(100%);width:100%;max-width:430px;z-index:600;background:#161616;border-top:1px solid #2a2a2a;border-radius:20px 20px 0 0;padding:0 20px 44px;transition:transform .3s cubic-bezier(.32,.72,0,1);box-shadow:0 -8px 40px rgba(0,0,0,.8)}
+#sheet.open{transform:translateX(-50%) translateY(0)}
+.sheet-handle{display:flex;justify-content:center;padding:12px 0 4px}
+.sheet-grip{width:36px;height:4px;border-radius:2px;background:#333}
+.sheet-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding-top:4px}
+.sheet-close{background:#2a2a2a;border:none;border-radius:50%;width:28px;height:28px;cursor:pointer;color:#888;font-size:18px;display:flex;align-items:center;justify-content:center;line-height:1;padding-bottom:1px}
+.sheet-btn{width:100%;padding:15px;border-radius:12px;border:none;cursor:pointer;background:linear-gradient(135deg,#b8ff57,#8ed43c);color:#0a0a0a;font-size:13px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;box-shadow:0 4px 20px rgba(184,255,87,.3)}
+.sinp{background:#1c1c1c;border:1px solid #2e2e2e;border-radius:6px;padding:10px 12px;color:#fff;font-size:14px;width:100%;outline:none;font-family:inherit;transition:border-color .15s}
+.sinp:focus{border-color:#b8ff57}
+.sinp[type=number]{-moz-appearance:textfield}
+.sinp[type=number]::-webkit-inner-spin-button,.sinp[type=number]::-webkit-outer-spin-button{-webkit-appearance:none}
+`;
+
+// ── COMPONENT ─────────────────────────────────────────────────────────────────
+export default function APREApp() {
+  useEffect(() => {
+    APP_URL = window.location.origin + '/apre';
+
+    drawSets("ke", 0);
+    drawSets("lp", 0);
+    drawTimeline();
+    drawRef();
+    drawHistory();
+    loadFromURL();
+
+    var t = new Date();
+    var dateEl = document.getElementById("s_date");
+    if (dateEl) dateEl.value = (t.getMonth()+1)+"/"+t.getDate()+"/"+t.getFullYear();
+
+    var EVENTS = ["input","change","keyup","blur","paste"];
+    function bindInput(id, ex) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      EVENTS.forEach(function(evt) {
+        el.addEventListener(evt, function(){ calc(ex); }, {passive:true});
+      });
     }
+    bindInput("ke_ww","ke"); bindInput("ke_s3","ke"); bindInput("ke_s4","ke");
+    bindInput("lp_ww","lp"); bindInput("lp_s3","lp"); bindInput("lp_s4","lp");
 
-    doc.setFontSize(10);
-    doc.setTextColor(60, 60, 60);
-    doc.setFont("helvetica", "normal");
-    doc.text(`Protocol: ${protoKey}`, L, y);
-    y += 20;
-
-    // Workout table header
-    doc.setFillColor(240, 240, 240);
-    doc.rect(L, y, R - L, 18, "F");
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(80, 80, 80);
-    const cols = [L + 10, L + 100, L + 200, L + 300, L + 400];
-    doc.text("SET", cols[0], y + 12);
-    doc.text("LOAD", cols[1], y + 12);
-    doc.text("REPS", cols[2], y + 12);
-    doc.text("COMPLETED", cols[3], y + 12);
-    y += 22;
-
-    PROTO[protoKey].sets.forEach((s, i) => {
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(10);
-      doc.setTextColor(30, 30, 30);
-      doc.text(`Set ${i + 1}`, cols[0], y + 12);
-      doc.text(s.pct ? `${s.pct}%` : "Adjusted", cols[1], y + 12);
-      doc.text(String(s.reps), cols[2], y + 12);
-      // Empty box for patient to write in
-      doc.setDrawColor(180, 180, 180);
-      doc.rect(cols[3], y + 2, 60, 14);
-      y += 20;
+    var pollTimer = null;
+    function startPoll(ex){ if(pollTimer)clearInterval(pollTimer); pollTimer=setInterval(function(){calc(ex);},400); }
+    function stopPoll(){ if(pollTimer){clearInterval(pollTimer);pollTimer=null;} }
+    ["ke_ww","ke_s3","ke_s4"].forEach(function(id){
+      var el=document.getElementById(id);
+      if(el){el.addEventListener("focus",function(){startPoll("ke");});el.addEventListener("blur",stopPoll);}
     });
-
-    y += 16;
-
-    // Instructions
-    doc.setFontSize(9);
-    doc.setTextColor(80, 80, 80);
-    doc.setFont("helvetica", "bold");
-    doc.text("INSTRUCTIONS", L, y);
-    y += 14;
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.setTextColor(60, 60, 60);
-    const instructions = [
-      "1. Perform Set 1 and Set 2 at the prescribed load and reps.",
-      "2. Set 3: Use your full working weight and perform as many reps as possible (AMRAP).",
-      "3. Record your Set 3 reps — your therapist will adjust Set 4 load based on performance.",
-      "4. Set 4: Perform AMRAP at the adjusted load. Record reps completed.",
-      "5. Your next session starting weight is based on Set 4 performance.",
-    ];
-    instructions.forEach(line => {
-      doc.text(line, L + 10, y);
-      y += 13;
+    ["lp_ww","lp_s3","lp_s4"].forEach(function(id){
+      var el=document.getElementById(id);
+      if(el){el.addEventListener("focus",function(){startPoll("lp");});el.addEventListener("blur",stopPoll);}
     });
-
-    // Footer
-    doc.setDrawColor(200, 200, 200);
-    doc.line(L, H - 48, R, H - 48);
-    doc.setFontSize(7);
-    doc.setTextColor(150, 150, 150);
-    doc.text("TRM APRE Calculator — Patient Take-Home Copy", L, H - 36);
-
-    // Save
-    const fileName = info.ptName
-      ? `TRM_APRE_${info.ptName.replace(/\s+/g, "_")}_${new Date().toISOString().slice(0, 10)}.pdf`
-      : `TRM_APRE_${new Date().toISOString().slice(0, 10)}.pdf`;
-    doc.save(fileName);
-  };
+    return () => { if(pollTimer) clearInterval(pollTimer); };
+  }, []);
 
   return (
-    <div style={{ background: BLACK, minHeight: "100vh", color: WHITE, fontFamily: "'Inter','Helvetica Neue',sans-serif" }}>
-      <PatientInfoModal open={pdfModalOpen} onClose={() => setPdfModalOpen(false)} onExport={handleExportPDF} />
+    <>
+      <style>{CSS}</style>
+      <div className="apre-wrap">
 
-      {/* ─── STICKY HEADER ─── */}
-      <div style={{ background: DARK, borderBottom: `1px solid ${BORDER}`, position: "sticky", top: 0, zIndex: 100, boxShadow: "0 2px 20px rgba(0,0,0,0.8)" }}>
-        <div style={{ maxWidth: 900, margin: "0 auto", padding: "0 20px" }}>
-          {/* Title row */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", height: 58 }}>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
-              <span style={{ fontFamily: "'Arial Black',Impact,sans-serif", fontSize: 28, fontWeight: 900, color: WHITE, letterSpacing: "-1px" }}>TRM</span>
-              <span style={{ color: BORDER, fontSize: 18 }}>|</span>
-              <span style={{ fontSize: 11, fontWeight: 700, color: "#777", letterSpacing: "0.08em", textTransform: "uppercase" }}>APRE Calculator</span>
-            </div>
+        {/* HEADER */}
+        <div className="hdr">
+          <div className="logo-row">
+            <div className="logo-text">TRM</div>
+            <div className="logo-bar"></div>
+            <div className="logo-pill">APRE</div>
           </div>
-
-          {/* Protocol selector */}
-          <div style={{ display: "flex", gap: 6, paddingBottom: 10 }}>
-            {Object.keys(PROTO).map(key => (
-              <button key={key} onClick={() => setProtoKey(key)} style={{
-                padding: "7px 16px", borderRadius: 8, fontSize: 11, fontWeight: 800,
-                cursor: "pointer", letterSpacing: "0.06em",
-                background: protoKey === key ? LIME : "transparent",
-                border: `2px solid ${protoKey === key ? LIME : BORDER}`,
-                color: protoKey === key ? BLACK : MUTED,
-                transition: "all 0.15s",
-              }}>
-                {key}
-              </button>
-            ))}
+          <div className="hdr-sub">Progressive Resistance Loading · ACL Rehab</div>
+          <div className="proto-row">
+            <div className="pill on" id="p10" onClick={()=>setProto('apre10')}><div className="pill-name">APRE 10</div><div className="pill-wk">Wks 6–10</div></div>
+            <div className="pill" id="p6" onClick={()=>setProto('apre6')}><div className="pill-name">APRE 6</div><div className="pill-wk">Wks 10–16</div></div>
+            <div className="pill" id="p3" onClick={()=>setProto('apre3')}><div className="pill-name">APRE 3</div><div className="pill-wk">Wks 16+</div></div>
           </div>
-
-          {/* Tab bar */}
-          <div style={{ display: "flex", borderTop: `1px solid ${BORDER}` }}>
-            {tabs.map((t, i) => (
-              <button key={i} onClick={() => setActiveTab(i)} style={{
-                padding: "10px 22px", background: "transparent", border: "none",
-                borderBottom: `3px solid ${activeTab === i ? LIME : "transparent"}`,
-                cursor: "pointer", textAlign: "left",
-              }}>
-                <div style={{ fontSize: 12, fontWeight: 800, color: activeTab === i ? LIME : "#666" }}>{t.label}</div>
-                <div style={{ fontSize: 9, color: activeTab === i ? LIME + "88" : "#444", letterSpacing: "0.08em", textTransform: "uppercase" }}>{t.sub}</div>
-              </button>
-            ))}
+          <div className="nav">
+            <button className="nb on" onClick={(e)=>goTab('calc',e.currentTarget)}>Calculator</button>
+            <button className="nb" onClick={(e)=>goTab('workouts',e.currentTarget)}>Workouts</button>
+            <button className="nb" onClick={(e)=>goTab('history',e.currentTarget)}>6-Wk Block</button>
+            <button className="nb" onClick={(e)=>goTab('timeline',e.currentTarget)}>Progression</button>
+            <button className="nb" onClick={(e)=>goTab('ref',e.currentTarget)}>Reference</button>
           </div>
         </div>
-      </div>
 
-      {/* ─── CONTENT ─── */}
-      <div style={{ maxWidth: 900, margin: "0 auto", padding: "20px 16px" }}>
-        {/* Protocol description banner */}
-        {activeTab === 0 && (
-          <div style={{
-            marginBottom: 20, padding: "14px 18px", borderRadius: 10,
-            background: LIME + "0a", border: `1px solid ${LIME}33`,
-          }}>
-            <div style={{ fontSize: 13, fontWeight: 800, color: LIME, marginBottom: 4 }}>{PROTO[protoKey].label}</div>
-            <div style={{ fontSize: 11, color: MUTED, lineHeight: 1.6 }}>{PROTO[protoKey].desc}</div>
+        <div className="content">
+
+          {/* CALC TAB */}
+          <div id="tab_calc">
+            <div style={{height:'12px'}}></div>
+            <div className="phase-badge">
+              <span className="phase-lbl" id="phLbl">Hypertrophy / Tissue Loading</span>
+              <span className="phase-wk" id="phWk">Weeks 6–10 post-op</span>
+            </div>
+            <div id="wk_banner" style={{display:'none',background:'rgba(184,255,87,.07)',border:'1px solid rgba(184,255,87,.2)',borderRadius:'8px',padding:'10px 13px',marginBottom:'13px'}}>
+              <div style={{fontSize:'9px',fontWeight:'800',letterSpacing:'.12em',textTransform:'uppercase',color:'var(--lime)',marginBottom:'6px'}}>📋 LOADED FROM LAST SESSION — WEEK <span id="wk_num_banner">1</span> OF 6</div>
+              <div style={{display:'flex',gap:'10px',flexWrap:'wrap'}}>
+                <div id="wk_ke_hint" style={{display:'none',fontSize:'11px',color:'#aaa'}}>KE Set 3 start: <span style={{color:'var(--lime)',fontFamily:'monospace',fontWeight:'700'}} id="wk_ke_hint_val">—</span></div>
+                <div id="wk_lp_hint" style={{display:'none',fontSize:'11px',color:'#aaa'}}>LP Set 3 start: <span style={{color:'var(--blue)',fontFamily:'monospace',fontWeight:'700'}} id="wk_lp_hint_val">—</span></div>
+              </div>
+              <div style={{fontSize:'10px',color:'var(--muted)',marginTop:'5px'}}>These are carry-forward recommendations from last week. Adjust if clinically indicated.</div>
+            </div>
+
+            {/* KE Card */}
+            <div className="card ke-card">
+              <div className="ch"><div className="ch-left"><div className="cbar"></div><span className="ctitle">Knee Extension</span></div><span className="xbadge ke">KE</span></div>
+              <div className="cb">
+                <div className="fld"><label className="flbl">Set 3 Working Weight (lbs)</label><input className="inp ke" type="text" inputMode="decimal" placeholder="Enter working weight" id="ke_ww" /></div>
+                <div className="div"></div>
+                <table className="st"><thead><tr><th>Set</th><th>Reps</th><th>Load (lbs)</th><th>% 1RM</th></tr></thead><tbody id="ke_tbl"></tbody></table>
+                <div className="div"></div>
+                <div className="fld"><label className="flbl">Set 3 — Reps Completed</label><input className="inp ke" type="text" inputMode="numeric" placeholder="How many reps?" id="ke_s3" /></div>
+                <div id="ke_s4rec" className="hidden"></div>
+                <div id="ke_s4g" className="hidden">
+                  <div id="ke_rmb" className="rmbox ke hidden"><div className="rml">Estimated 1RM</div><div className="rmv" style={{color:'var(--lime)'}} id="ke_rm">—</div></div>
+                  <div className="fld"><label className="flbl">Set 4 — Reps Completed</label><input className="inp ke" type="text" inputMode="numeric" placeholder="After Set 4..." id="ke_s4" /></div>
+                  <div id="ke_next" className="hidden"></div>
+                </div>
+              </div>
+            </div>
+
+            {/* LP Card */}
+            <div className="card lp-card">
+              <div className="ch"><div className="ch-left"><div className="cbar"></div><span className="ctitle">Leg Press / Shuttle</span></div><span className="xbadge lp">LP</span></div>
+              <div className="cb">
+                <div className="fld"><label className="flbl">Set 3 Working Weight (lbs)</label><input className="inp lp" type="text" inputMode="decimal" placeholder="Enter working weight" id="lp_ww" /></div>
+                <div className="div"></div>
+                <table className="st"><thead><tr><th>Set</th><th>Reps</th><th>Load (lbs)</th><th>% 1RM</th></tr></thead><tbody id="lp_tbl"></tbody></table>
+                <div className="div"></div>
+                <div className="fld"><label className="flbl">Set 3 — Reps Completed</label><input className="inp lp" type="text" inputMode="numeric" placeholder="How many reps?" id="lp_s3" /></div>
+                <div id="lp_s4rec" className="hidden"></div>
+                <div id="lp_s4g" className="hidden">
+                  <div id="lp_rmb" className="rmbox lp hidden"><div className="rml">Estimated 1RM</div><div className="rmv" style={{color:'var(--blue)'}} id="lp_rm">—</div></div>
+                  <div className="fld"><label className="flbl">Set 4 — Reps Completed</label><input className="inp lp" type="text" inputMode="numeric" placeholder="After Set 4..." id="lp_s4" /></div>
+                  <div id="lp_next" className="hidden"></div>
+                </div>
+              </div>
+            </div>
+            <button className="rbtn hidden" id="resetBtn" onClick={()=>resetAll()}>Reset All</button>
           </div>
-        )}
 
-        {activeTab === 0 && (
-          <div className="apre-grid2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
-            <ExerciseCard title="Knee Extension" icon="🦵" proto={protoKey} protoKey={protoKey} />
-            <ExerciseCard title="Leg Press" icon="🏋️" proto={protoKey} protoKey={protoKey} />
+          {/* WORKOUTS TAB */}
+          <div id="tab_workouts" className="hidden">
+            <div style={{height:'12px'}}></div>
+            <div id="w_empty" className="card">
+              <div className="cb" style={{textAlign:'center',padding:'28px 16px'}}>
+                <div style={{fontSize:'30px',marginBottom:'10px'}}>📋</div>
+                <div style={{fontSize:'12px',color:'var(--muted)',lineHeight:'1.7'}}>Complete the APRE calculator first.<br/>Weekly workouts generate automatically<br/>once Set 4 reps are entered.</div>
+                <div style={{fontSize:'10px',color:'#333',marginTop:'6px'}}>Works with KE only, LP only, or both.</div>
+              </div>
+            </div>
+            <div id="w_content" className="hidden"></div>
           </div>
-        )}
-        {activeTab === 1 && <WorkoutsTab protoKey={protoKey} />}
-        {activeTab === 2 && <ProgressionTab protoKey={protoKey} />}
-        {activeTab === 3 && <ReferenceTab />}
-      </div>
 
-      {/* ─── FOOTER ─── */}
-      <div style={{ borderTop: `1px solid ${BORDER}`, padding: "16px 20px", textAlign: "center" }}>
-        <span style={{ fontFamily: "'Arial Black',sans-serif", fontWeight: 900, color: WHITE, fontSize: 13 }}>TRM</span>
-        <span style={{ color: MUTED, fontSize: 11, marginLeft: 10 }}>APRE Calculator — Auto-regulation strength training for rehabilitation</span>
-      </div>
+          {/* HISTORY TAB */}
+          <div id="tab_history" className="hidden">
+            <div style={{height:'12px'}}></div>
+            <div id="histContent"></div>
+          </div>
 
-      {/* ─── FAB ─── */}
-      <div className="apre-fab" style={{ position: "fixed", bottom: 24, right: 24, zIndex: 200, display: "flex", alignItems: "center", gap: 8 }}>
-        <button onClick={() => setPdfModalOpen(true)} style={{
-          padding: "10px 18px", borderRadius: 10,
-          border: `1px solid ${LIME}55`, background: LIME + "18",
-          color: LIME, cursor: "pointer", fontSize: 11, fontWeight: 800,
-          letterSpacing: "0.08em", textTransform: "uppercase",
-          boxShadow: `0 4px 16px ${LIME}22`,
-        }}>
-          Save PDF
+          {/* TIMELINE TAB */}
+          <div id="tab_timeline" className="hidden">
+            <div style={{height:'12px'}}></div>
+            <div className="stitle">ACL Progression Roadmap</div>
+            <div id="tlContent"></div>
+          </div>
+
+          {/* REF TAB */}
+          <div id="tab_ref" className="hidden">
+            <div style={{height:'12px'}}></div>
+            <div id="refContent"></div>
+          </div>
+
+        </div>{/* .content */}
+
+        {/* FAB */}
+        <button id="fab" onClick={openSheet} title="Export PDF">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="12" y1="18" x2="12" y2="12"/>
+            <polyline points="9 15 12 18 15 15"/>
+          </svg>
+          <span className="fabtxt">PDF</span>
         </button>
-      </div>
-    </div>
+
+        {/* OVERLAY */}
+        <div id="overlay" onClick={closeSheet}></div>
+
+        {/* SHEET */}
+        <div id="sheet">
+          <div className="sheet-handle"><div className="sheet-grip"></div></div>
+          <div className="sheet-hdr">
+            <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
+              <div style={{width:'3px',height:'16px',background:'var(--lime)',borderRadius:'2px'}}></div>
+              <div>
+                <div style={{fontSize:'14px',fontWeight:'800',color:'#fff'}}>Export Session PDF</div>
+                <div style={{fontSize:'10px',color:'#555',marginTop:'1px'}}>Opens in browser — share or save from there</div>
+              </div>
+            </div>
+            <button className="sheet-close" onClick={closeSheet}>✕</button>
+          </div>
+          <div id="sheet_nodata" className="hidden" style={{textAlign:'center',padding:'16px 0 20px'}}>
+            <div style={{fontSize:'28px',marginBottom:'8px'}}>⚠️</div>
+            <div style={{fontSize:'12px',color:'#555',lineHeight:'1.6'}}>Complete the APRE calculator first.<br/>Enter Set 4 reps on at least one exercise.</div>
+          </div>
+          <div id="sheet_form">
+            <div className="g2" style={{marginBottom:'10px'}}>
+              <div>
+                <label style={{display:'block',fontSize:'9px',fontWeight:'800',letterSpacing:'.12em',textTransform:'uppercase',color:'#555',marginBottom:'5px'}}>Patient Code</label>
+                <input id="s_name" className="sinp" type="text" placeholder="e.g. PT-001" />
+              </div>
+              <div>
+                <label style={{display:'block',fontSize:'9px',fontWeight:'800',letterSpacing:'.12em',textTransform:'uppercase',color:'#555',marginBottom:'5px'}}>Date</label>
+                <input id="s_date" className="sinp" type="text" placeholder="MM/DD/YYYY" />
+              </div>
+            </div>
+            <div className="g2" style={{marginBottom:'16px'}}>
+              <div>
+                <label style={{display:'block',fontSize:'9px',fontWeight:'800',letterSpacing:'.12em',textTransform:'uppercase',color:'#555',marginBottom:'5px'}}>Week of Block (1–6)</label>
+                <input id="s_weeks" className="sinp" type="number" inputMode="numeric" placeholder="e.g. 2" min="1" max="6" />
+              </div>
+              <div>
+                <label style={{display:'block',fontSize:'9px',fontWeight:'800',letterSpacing:'.12em',textTransform:'uppercase',color:'#555',marginBottom:'5px'}}>Therapist</label>
+                <input id="s_therapist" className="sinp" type="text" placeholder="Your name" />
+              </div>
+            </div>
+            <button className="sheet-btn" onClick={genPDF}>↗ Export PDF + QR Code</button>
+          </div>
+        </div>
+
+      </div>{/* .apre-wrap */}
+    </>
   );
 }
