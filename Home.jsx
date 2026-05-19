@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
 
 const tools = [
   {
@@ -8,7 +7,7 @@ const tools = [
     description: "Return-to-sport testing battery, limb symmetry index, hop testing & SOAP note generation",
     tag: "LOWER EXTREMITY",
     color: "#aaff00",
-    to: "/acl",
+    href: "/acl",
   },
   {
     id: "shoulder",
@@ -16,7 +15,7 @@ const tools = [
     description: "Scapular & rotator cuff strength, functional testing, SOAP note output & clinical scoring",
     tag: "UPPER EXTREMITY",
     color: "#00d4ff",
-    to: "/shoulder",
+    href: "/shoulder",
   },
   {
     id: "apre",
@@ -24,7 +23,7 @@ const tools = [
     description: "Auto-regulatory progressive resistance training with week-to-week QR-coded PDF tracking",
     tag: "STRENGTH & CONDITIONING",
     color: "#ff6b2b",
-    to: "/apre",
+    href: "/apre",
   },
 ];
 
@@ -90,7 +89,6 @@ export default function Home() {
           margin-bottom: 14px;
         }
 
-        /* TRM — large */
         .trm-title-trm {
           font-family: 'Bebas Neue', sans-serif;
           font-size: clamp(80px, 14vw, 130px);
@@ -101,33 +99,41 @@ export default function Home() {
           display: block;
         }
 
-        /* CLINIC TOOLS — smaller, lime green */
         .trm-title-sub {
           font-family: 'Bebas Neue', sans-serif;
-          font-size: clamp(36px, 6vw, 60px);
+          font-size: clamp(22px, 3.6vw, 38px);
           line-height: 1;
-          letter-spacing: 3px;
+          letter-spacing: 5px;
           color: #aaff00;
           text-transform: uppercase;
           display: block;
-          margin-top: 2px;
+          margin-top: 6px;
         }
 
-        .trm-subtitle-row {
+        .trm-tagline-row {
           display: flex;
           align-items: center;
-          gap: 16px;
-          margin-top: 20px;
-          flex-wrap: wrap;
+          gap: 14px;
+          margin-top: 22px;
         }
-        .trm-line { height: 2px; width: 40px; background: #aaff00; flex-shrink: 0; }
-        .trm-clinic-tag {
+        .trm-tagline-line {
+          height: 1px;
+          width: 32px;
+          background: #aaff00;
+          flex-shrink: 0;
+          opacity: 0.6;
+        }
+        .trm-tagline-text {
           font-family: 'Barlow Condensed', sans-serif;
           font-weight: 700;
-          font-size: 14px;
-          letter-spacing: 3px;
-          color: #888;
+          font-size: 11px;
+          letter-spacing: 5px;
+          color: #666;
           text-transform: uppercase;
+        }
+        .trm-tagline-text span {
+          color: #aaff00;
+          opacity: 0.75;
         }
         .trm-count {
           margin-left: auto;
@@ -138,6 +144,7 @@ export default function Home() {
           letter-spacing: 2px;
           padding: 4px 14px;
           line-height: 1.4;
+          flex-shrink: 0;
         }
 
         /* ── Tool list ── */
@@ -157,7 +164,6 @@ export default function Home() {
           border-bottom: 1px solid #1e1e1e;
         }
 
-        /* ── Tool row ── */
         .trm-tool-row {
           display: flex;
           align-items: center;
@@ -237,37 +243,17 @@ export default function Home() {
           transform: translateX(4px);
         }
 
-        /* ── Footer ── */
-        .trm-footer {
-          position: relative;
-          z-index: 10;
-          padding: 20px 40px;
-          border-top: 1px solid #1a1a1a;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-        .trm-footer-brand {
-          font-family: 'Bebas Neue', sans-serif;
-          font-size: 18px;
-          letter-spacing: 3px;
-          color: #aaff00;
-        }
-
-        /* ── Fade in ── */
         .fade-in { opacity: 0; transform: translateY(14px); animation: fadeUp 0.45s ease forwards; }
         .fade-in:nth-child(1) { animation-delay: 0.05s; }
         .fade-in:nth-child(2) { animation-delay: 0.13s; }
         .fade-in:nth-child(3) { animation-delay: 0.21s; }
         @keyframes fadeUp { to { opacity: 1; transform: translateY(0); } }
 
-        /* ── Mobile ── */
         @media (max-width: 600px) {
           .trm-bar { padding: 8px 20px; font-size: 9px; letter-spacing: 2px; }
           .trm-header { padding: 28px 20px 22px; }
           .trm-tool-list { padding: 0 20px 40px; }
           .trm-tool-row::before { left: -20px; }
-          .trm-footer { padding: 16px 20px; }
           .trm-tool-desc { display: none; }
           .trm-count { display: none; }
         }
@@ -275,38 +261,36 @@ export default function Home() {
 
       <div className="trm-root">
 
-        {/* Decorative X marks */}
         <XMark style={{ width:160, position:'absolute', top:-24, right:-24, opacity:0.07, pointerEvents:'none', zIndex:1 }} />
         <XMark style={{ width:90,  position:'absolute', bottom:100, left:-16, opacity:0.05, pointerEvents:'none', zIndex:1 }} />
         <XMark style={{ width:50,  position:'absolute', top:240, right:60,  opacity:0.04, pointerEvents:'none', zIndex:1 }} />
 
-        {/* Announcement bar */}
         <div className="trm-bar">
           <div className="trm-bar-dot" />
           TRAIN · RECOVER · MOVE — CLINICAL TOOLS
           <div className="trm-bar-dot" />
         </div>
 
-        {/* Header */}
         <header className="trm-header">
           <div className="trm-eyebrow">Outpatient Orthopedic Physical Therapy</div>
           <span className="trm-title-trm">TRM</span>
           <span className="trm-title-sub">Clinic Tools</span>
-          <div className="trm-subtitle-row">
-            <div className="trm-line" />
-            <div className="trm-clinic-tag">TRAIN · RECOVER · MOVE</div>
+          <div className="trm-tagline-row">
+            <div className="trm-tagline-line" />
+            <div className="trm-tagline-text">
+              <span>Train</span> · <span>Recover</span> · <span>Move</span>
+            </div>
             <div className="trm-count">{tools.length} TOOLS</div>
           </div>
         </header>
 
-        {/* Tool list */}
         <main className="trm-tool-list">
           <div className="trm-section-label">Clinical Applications</div>
 
           {tools.map((tool) => (
-            <Link
+            <a
               key={tool.id}
-              to={tool.to}
+              href={tool.href}
               className="trm-tool-row fade-in"
               style={{ '--accent': tool.color }}
               onMouseEnter={() => setHoveredId(tool.id)}
@@ -322,14 +306,9 @@ export default function Home() {
                   <path d="M2 7h10M8 3l4 4-4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               </div>
-            </Link>
+            </a>
           ))}
         </main>
-
-        {/* Footer — clean, just the brand */}
-        <footer className="trm-footer">
-          <div className="trm-footer-brand">TRM</div>
-        </footer>
 
       </div>
     </>
