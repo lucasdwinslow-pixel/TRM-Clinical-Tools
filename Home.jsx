@@ -4,35 +4,25 @@ const tools = [
   {
     id: "acl",
     name: "ACL Testing App",
-    description: "Return-to-sport testing battery, limb symmetry index, hop testing & SOAP note generation",
-    tag: "LOWER EXTREMITY",
-    color: "#aaff00",
+    tag: "Lower Extremity",
+    color: "#C5FF2E",
     href: "/acl",
   },
   {
     id: "shoulder",
     name: "Shoulder Testing App",
-    description: "Scapular & rotator cuff strength, functional testing, SOAP note output & clinical scoring",
-    tag: "UPPER EXTREMITY",
-    color: "#00d4ff",
+    tag: "Upper Extremity",
+    color: "#C5FF2E",
     href: "/shoulder",
   },
   {
     id: "apre",
     name: "APRE Calculator",
-    description: "Auto-regulatory progressive resistance training with week-to-week QR-coded PDF tracking",
-    tag: "STRENGTH & CONDITIONING",
-    color: "#ff6b2b",
+    tag: "Strength & Conditioning",
+    color: "#C5FF2E",
     href: "/apre",
   },
 ];
-
-const XMark = ({ style }) => (
-  <svg viewBox="0 0 60 60" fill="none" style={style}>
-    <line x1="5" y1="5" x2="55" y2="55" stroke="#aaff00" strokeWidth="8" strokeLinecap="round"/>
-    <line x1="55" y1="5" x2="5" y2="55" stroke="#aaff00" strokeWidth="8" strokeLinecap="round"/>
-  </svg>
-);
 
 export default function Home() {
   const [hoveredId, setHoveredId] = useState(null);
@@ -40,275 +30,272 @@ export default function Home() {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@400;600&family=Barlow+Condensed:wght@700;900&display=swap');
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        html, body { height: 100%; background: #0a0a0a; overscroll-behavior: none; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap');
 
-        .trm-root {
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body { height: 100%; overscroll-behavior: none; }
+
+        :root {
+          --lime: #C5FF2E;
+          --bg: #121619;
+          --border: rgba(255,255,255,0.1);
+        }
+
+        .pb-root {
           min-height: 100vh;
+          background-color: var(--bg);
+          background-image:
+            linear-gradient(rgba(0,0,0,0.82), rgba(0,0,0,0.92)),
+            url('https://lh3.googleusercontent.com/aida-public/AB6AXuAHH4-Tq2Zvh_shO7wNwSh9fTt3vl5zqHqG1KOrQ4q3VTQJBQfQHMY8TkqzNfglrpLNtfdX46wnNkXhU-cTKk2eO0uo-a-GT8oBqVVhzVEW0BI6OeO-j-q4Dm7F_SLO9rzEWHOMeQUPAm5JIGm-ruIPaUORw0wpk7X6lFQHCkt20rPygBb0FZwYRHddyg3A54q72YCoPA6EksES9hT4ChmgtlGlYeAge2wS25pCMGvSF3csGiwVwU8l57y-nnPEftF1HQ_ybJKiVrjr');
+          background-size: cover;
+          background-position: center;
+          background-repeat: no-repeat;
+          background-attachment: fixed;
+          color: #fff;
+          font-family: 'Inter', system-ui, -apple-system, sans-serif;
+          display: flex;
+          flex-direction: column;
           padding-top: env(safe-area-inset-top);
           padding-bottom: env(safe-area-inset-bottom);
-          background: #0a0a0a;
-          color: #fff;
-          font-family: 'Barlow', sans-serif;
-          position: relative;
-          overflow: hidden;
         }
 
-        /* ── Bar ── */
-        .trm-bar {
-          background: #aaff00;
-          color: #0a0a0a;
-          font-family: 'Barlow Condensed', sans-serif;
-          font-weight: 900;
-          font-size: 11px;
-          letter-spacing: 4px;
-          text-transform: uppercase;
-          padding: 8px 40px;
+        /* ── Status bar ── */
+        .pb-status {
+          height: 44px;
           display: flex;
+          justify-content: space-between;
           align-items: center;
-          gap: 12px;
+          padding: 0 24px;
+          flex-shrink: 0;
         }
-        .trm-bar-dot { width: 6px; height: 6px; background: #0a0a0a; border-radius: 50%; flex-shrink: 0; }
+        .pb-status-time {
+          font-size: 12px;
+          font-weight: 600;
+          letter-spacing: 0.02em;
+        }
+        .pb-status-icons {
+          display: flex;
+          gap: 4px;
+          align-items: center;
+          opacity: 0.7;
+        }
+
+        /* ── Main ── */
+        .pb-main {
+          flex: 1;
+          padding: 16px 32px 0;
+        }
 
         /* ── Header ── */
-        .trm-header {
-          position: relative;
-          z-index: 10;
-          padding: 48px 40px 36px;
-          border-bottom: 3px solid #aaff00;
+        .pb-header {
+          margin-bottom: 40px;
         }
-
-        .trm-eyebrow {
-          font-family: 'Barlow Condensed', sans-serif;
-          font-weight: 700;
+        .pb-title-lime {
+          font-size: clamp(48px, 13vw, 64px);
+          font-weight: 900;
+          font-style: italic;
+          text-transform: uppercase;
+          letter-spacing: -0.03em;
+          line-height: 0.92;
+          color: var(--lime);
+          display: block;
+        }
+        .pb-title-playbook {
+          font-size: clamp(48px, 13vw, 64px);
+          font-weight: 900;
+          font-style: italic;
+          text-transform: uppercase;
+          letter-spacing: -0.03em;
+          line-height: 0.92;
+          color: var(--lime);
+          display: block;
+          margin-top: 2px;
+        }
+        .pb-divider {
+          margin-top: 18px;
+          border-top: 4px solid var(--lime);
+          padding-top: 16px;
+        }
+        .pb-subtitle {
           font-size: 13px;
-          letter-spacing: 4px;
-          color: #aaff00;
-          text-transform: uppercase;
-          margin-bottom: 14px;
-        }
-
-        .trm-title-trm {
-          font-family: 'Bebas Neue', sans-serif;
-          font-size: clamp(80px, 14vw, 130px);
-          line-height: 0.88;
-          letter-spacing: 3px;
-          color: #ffffff;
-          text-transform: uppercase;
-          display: block;
-        }
-
-        .trm-title-sub {
-          font-family: 'Bebas Neue', sans-serif;
-          font-size: clamp(22px, 3.6vw, 38px);
-          line-height: 1;
-          letter-spacing: 5px;
-          color: #aaff00;
-          text-transform: uppercase;
-          display: block;
-          margin-top: 6px;
-        }
-
-        .trm-tagline-row {
-          display: flex;
-          align-items: center;
-          gap: 14px;
-          margin-top: 22px;
-        }
-        .trm-tagline-line {
-          height: 1px;
-          width: 32px;
-          background: #aaff00;
-          flex-shrink: 0;
-          opacity: 0.6;
-        }
-        .trm-tagline-text {
-          font-family: 'Barlow Condensed', sans-serif;
           font-weight: 700;
-          font-size: 11px;
-          letter-spacing: 5px;
-          color: #666;
+          letter-spacing: 0.08em;
+          line-height: 1.6;
           text-transform: uppercase;
+          color: #fff;
         }
-        .trm-tagline-text span {
-          color: #aaff00;
-          opacity: 0.75;
-        }
-        .trm-count {
-          margin-left: auto;
-          background: #aaff00;
-          color: #0a0a0a;
-          font-family: 'Bebas Neue', sans-serif;
-          font-size: 18px;
-          letter-spacing: 2px;
-          padding: 4px 14px;
-          line-height: 1.4;
-          flex-shrink: 0;
+        .pb-subtitle-accent {
+          color: var(--lime);
         }
 
         /* ── Tool list ── */
-        .trm-tool-list {
-          position: relative;
-          z-index: 10;
-          padding: 0 40px 60px;
-        }
-        .trm-section-label {
-          font-family: 'Barlow Condensed', sans-serif;
-          font-weight: 700;
-          font-size: 11px;
-          letter-spacing: 5px;
-          color: #555;
-          text-transform: uppercase;
-          padding: 28px 0 14px;
-          border-bottom: 1px solid #1e1e1e;
+        .pb-list {
+          display: flex;
+          flex-direction: column;
         }
 
-        .trm-tool-row {
+        .pb-item {
           display: flex;
+          justify-content: space-between;
           align-items: center;
-          gap: 24px;
           padding: 28px 0;
-          border-bottom: 1px solid #1e1e1e;
+          border-bottom: 1px solid rgba(255,255,255,0.1);
           cursor: pointer;
           text-decoration: none;
           color: inherit;
-          position: relative;
           -webkit-tap-highlight-color: transparent;
+          transition: background 0.15s ease;
+          position: relative;
         }
-        .trm-tool-row::before {
-          content: '';
-          position: absolute;
-          left: -40px;
-          top: 0;
-          bottom: 0;
-          width: 0;
-          background: var(--accent);
-          transition: width 0.18s ease;
-        }
-        .trm-tool-row:hover::before,
-        .trm-tool-row:active::before { width: 5px; }
 
-        .trm-tool-text { flex: 1; }
-        .trm-tool-tag {
-          font-family: 'Barlow Condensed', sans-serif;
+        .pb-item-text { flex: 1; }
+
+        .pb-item-tag {
+          font-size: 11px;
           font-weight: 700;
-          font-size: 10px;
-          letter-spacing: 4px;
-          color: #555;
+          letter-spacing: 0.15em;
           text-transform: uppercase;
-          margin-bottom: 5px;
+          color: rgba(255,255,255,0.4);
+          margin-bottom: 6px;
           transition: color 0.15s ease;
         }
-        .trm-tool-row:hover .trm-tool-tag,
-        .trm-tool-row:active .trm-tool-tag { color: var(--accent); }
+        .pb-item:hover .pb-item-tag { color: var(--lime); }
 
-        .trm-tool-name {
-          font-family: 'Bebas Neue', sans-serif;
-          font-size: clamp(28px, 4.5vw, 46px);
+        .pb-item-name {
+          font-size: clamp(26px, 6vw, 36px);
+          font-weight: 900;
+          font-style: italic;
           text-transform: uppercase;
-          letter-spacing: 2px;
+          letter-spacing: -0.02em;
+          line-height: 1.05;
           color: #fff;
-          line-height: 1;
-          margin-bottom: 8px;
           transition: color 0.15s ease;
         }
-        .trm-tool-row:hover .trm-tool-name,
-        .trm-tool-row:active .trm-tool-name { color: var(--accent); }
+        .pb-item:hover .pb-item-name { color: var(--lime); }
 
-        .trm-tool-desc {
-          font-size: 13.5px;
-          color: #666;
-          line-height: 1.55;
-          max-width: 520px;
-          font-weight: 400;
-        }
-
-        .trm-arrow {
+        .pb-arrow {
           flex-shrink: 0;
-          width: 36px;
-          height: 36px;
-          border: 2px solid #2a2a2a;
+          width: 48px;
+          height: 48px;
+          border: 2px solid var(--lime);
+          border-radius: 10px;
           display: flex;
           align-items: center;
           justify-content: center;
-          color: #444;
-          transition: all 0.18s ease;
+          color: var(--lime);
+          margin-left: 20px;
+          transition: background 0.15s ease, transform 0.15s ease;
         }
-        .trm-tool-row:hover .trm-arrow,
-        .trm-tool-row:active .trm-arrow {
-          color: var(--accent);
-          border-color: var(--accent);
-          background: rgba(255,255,255,0.03);
-          transform: translateX(4px);
+        .pb-item:hover .pb-arrow {
+          background: rgba(197,255,46,0.12);
+          transform: translateX(3px);
         }
 
-        .fade-in { opacity: 0; transform: translateY(14px); animation: fadeUp 0.45s ease forwards; }
-        .fade-in:nth-child(1) { animation-delay: 0.05s; }
-        .fade-in:nth-child(2) { animation-delay: 0.13s; }
-        .fade-in:nth-child(3) { animation-delay: 0.21s; }
-        @keyframes fadeUp { to { opacity: 1; transform: translateY(0); } }
+        /* fade-in stagger */
+        .pb-fade { opacity: 0; transform: translateY(12px); animation: pbUp 0.4s ease forwards; }
+        .pb-fade:nth-child(1) { animation-delay: 0.05s; }
+        .pb-fade:nth-child(2) { animation-delay: 0.12s; }
+        .pb-fade:nth-child(3) { animation-delay: 0.19s; }
+        @keyframes pbUp { to { opacity: 1; transform: none; } }
 
-        @media (max-width: 600px) {
-          .trm-bar { padding: 8px 20px; font-size: 9px; letter-spacing: 2px; }
-          .trm-header { padding: 28px 20px 22px; }
-          .trm-tool-list { padding: 0 20px 40px; }
-          .trm-tool-row::before { left: -20px; }
-          .trm-tool-desc { display: none; }
-          .trm-count { display: none; }
+        /* ── Footer ── */
+        .pb-footer {
+          padding: 32px 32px 20px;
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-end;
+        }
+        .pb-footer-brand {
+          font-size: 22px;
+          font-weight: 900;
+          font-style: italic;
+          letter-spacing: -0.02em;
+          color: var(--lime);
+          text-transform: uppercase;
+        }
+
+        /* ── Home indicator ── */
+        .pb-indicator {
+          width: 128px;
+          height: 4px;
+          background: rgba(255,255,255,0.35);
+          border-radius: 99px;
+          margin: 0 auto 8px;
+        }
+
+        @media (max-width: 480px) {
+          .pb-main { padding: 12px 20px 0; }
+          .pb-footer { padding: 24px 20px 16px; }
+          .pb-status { padding: 0 20px; }
         }
       `}</style>
 
-      <div className="trm-root">
+      <div className="pb-root">
 
-        <XMark style={{ width:160, position:'absolute', top:-24, right:-24, opacity:0.07, pointerEvents:'none', zIndex:1 }} />
-        <XMark style={{ width:90,  position:'absolute', bottom:100, left:-16, opacity:0.05, pointerEvents:'none', zIndex:1 }} />
-        <XMark style={{ width:50,  position:'absolute', top:240, right:60,  opacity:0.04, pointerEvents:'none', zIndex:1 }} />
-
-        <div className="trm-bar">
-          <div className="trm-bar-dot" />
-          TRAIN · RECOVER · MOVE — CLINICAL TOOLS
-          <div className="trm-bar-dot" />
+        {/* Status bar */}
+        <div className="pb-status">
+          <span className="pb-status-time">9:41</span>
+          <div className="pb-status-icons">
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+              <rect x="1" y="11" width="2" height="5" rx="0.5"/>
+              <rect x="5" y="8"  width="2" height="8" rx="0.5"/>
+              <rect x="9" y="5"  width="2" height="11" rx="0.5"/>
+              <rect x="13" y="2" width="2" height="14" rx="0.5"/>
+            </svg>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M23 7l-7 5 7 5V7z"/>
+              <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+            </svg>
+          </div>
         </div>
 
-        <header className="trm-header">
-          <div className="trm-eyebrow">Outpatient Orthopedic Physical Therapy</div>
-          <span className="trm-title-trm">TRM</span>
-          <span className="trm-title-sub">Clinic Tools</span>
-          <div className="trm-tagline-row">
-            <div className="trm-tagline-line" />
-            <div className="trm-tagline-text">
-              <span>Train</span> · <span>Recover</span> · <span>Move</span>
+        {/* Main content */}
+        <main className="pb-main">
+
+          {/* Header */}
+          <header className="pb-header">
+            <span className="pb-title-lime">TRM</span>
+            <span className="pb-title-playbook">Playbook</span>
+            <div className="pb-divider">
+              <p className="pb-subtitle">
+                Outpatient Orthopedic Physical Therapy<br />
+                <span className="pb-subtitle-accent">Train • Recover • Move</span>
+              </p>
             </div>
-            <div className="trm-count">{tools.length} TOOLS</div>
-          </div>
-        </header>
+          </header>
 
-        <main className="trm-tool-list">
-          <div className="trm-section-label">Clinical Applications</div>
+          {/* Tool list */}
+          <section className="pb-list">
+            {tools.map((tool) => (
+              <a
+                key={tool.id}
+                href={tool.href}
+                className="pb-item pb-fade"
+                onMouseEnter={() => setHoveredId(tool.id)}
+                onMouseLeave={() => setHoveredId(null)}
+              >
+                <div className="pb-item-text">
+                  <div className="pb-item-tag">{tool.tag}</div>
+                  <div className="pb-item-name">{tool.name}</div>
+                </div>
+                <div className="pb-arrow">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M5 12h14M12 5l7 7-7 7"/>
+                  </svg>
+                </div>
+              </a>
+            ))}
+          </section>
 
-          {tools.map((tool) => (
-            <a
-              key={tool.id}
-              href={tool.href}
-              className="trm-tool-row fade-in"
-              style={{ '--accent': tool.color }}
-              onMouseEnter={() => setHoveredId(tool.id)}
-              onMouseLeave={() => setHoveredId(null)}
-            >
-              <div className="trm-tool-text">
-                <div className="trm-tool-tag">{tool.tag}</div>
-                <div className="trm-tool-name">{tool.name}</div>
-                <div className="trm-tool-desc">{tool.description}</div>
-              </div>
-              <div className="trm-arrow">
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                  <path d="M2 7h10M8 3l4 4-4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </div>
-            </a>
-          ))}
         </main>
+
+        {/* Footer */}
+        <footer className="pb-footer">
+          <span className="pb-footer-brand">TRM</span>
+        </footer>
+
+        {/* iOS home indicator */}
+        <div className="pb-indicator" />
 
       </div>
     </>
