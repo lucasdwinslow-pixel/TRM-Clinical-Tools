@@ -5,21 +5,18 @@ const tools = [
     id: "acl",
     name: "ACL Testing App",
     tag: "Lower Extremity",
-    color: "#C5FF2E",
     href: "/acl",
   },
   {
     id: "shoulder",
     name: "Shoulder Testing App",
     tag: "Upper Extremity",
-    color: "#C5FF2E",
     href: "/shoulder",
   },
   {
     id: "apre",
     name: "APRE Calculator",
     tag: "Strength & Conditioning",
-    color: "#C5FF2E",
     href: "/apre",
   },
 ];
@@ -57,7 +54,25 @@ export default function Home() {
           flex-direction: column;
           padding-top: env(safe-area-inset-top);
           padding-bottom: env(safe-area-inset-bottom);
+          position: relative;
+          isolation: isolate;
         }
+
+        /* ── Grain overlay (#3) ── */
+        .pb-root::after {
+          content: '';
+          position: fixed;
+          inset: 0;
+          z-index: 0;
+          pointer-events: none;
+          opacity: 0.045;
+          background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+          background-repeat: repeat;
+          background-size: 128px 128px;
+        }
+
+        /* All direct children sit above the grain */
+        .pb-status, .pb-main, .pb-footer, .pb-indicator { position: relative; z-index: 1; }
 
         /* ── Status bar ── */
         .pb-status {
@@ -90,7 +105,13 @@ export default function Home() {
         .pb-header {
           margin-bottom: 40px;
         }
-        .pb-title-lime {
+
+        .pb-title-block {
+          display: flex;
+          flex-direction: column;
+        }
+
+        .pb-title-trm {
           font-size: clamp(48px, 13vw, 64px);
           font-weight: 900;
           font-style: italic;
@@ -100,6 +121,8 @@ export default function Home() {
           color: var(--lime);
           display: block;
         }
+
+        /* (#1 color change) PLAYBOOK is white */
         .pb-title-playbook {
           font-size: clamp(48px, 13vw, 64px);
           font-weight: 900;
@@ -107,25 +130,46 @@ export default function Home() {
           text-transform: uppercase;
           letter-spacing: -0.03em;
           line-height: 0.92;
-          color: var(--lime);
+          color: #ffffff;
           display: block;
           margin-top: 2px;
         }
-        .pb-divider {
+
+        .pb-divider-row {
           margin-top: 18px;
           border-top: 4px solid var(--lime);
-          padding-top: 16px;
+          padding-top: 14px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
         }
+
         .pb-subtitle {
-          font-size: 13px;
+          font-size: 12px;
           font-weight: 700;
           letter-spacing: 0.08em;
-          line-height: 1.6;
+          line-height: 1.65;
           text-transform: uppercase;
-          color: #fff;
+          color: rgba(255,255,255,0.6);
         }
         .pb-subtitle-accent {
           color: var(--lime);
+        }
+
+        /* (#2) Tool count badge */
+        .pb-badge {
+          flex-shrink: 0;
+          background: var(--lime);
+          color: #0a0a0a;
+          font-size: 11px;
+          font-weight: 800;
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
+          padding: 5px 12px;
+          border-radius: 4px;
+          white-space: nowrap;
+          line-height: 1;
         }
 
         /* ── Tool list ── */
@@ -134,19 +178,34 @@ export default function Home() {
           flex-direction: column;
         }
 
+        /* (#1) Left accent bar on hover */
         .pb-item {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          padding: 28px 0;
+          padding: 26px 0 26px 0;
           border-bottom: 1px solid rgba(255,255,255,0.1);
           cursor: pointer;
           text-decoration: none;
           color: inherit;
           -webkit-tap-highlight-color: transparent;
-          transition: background 0.15s ease;
           position: relative;
+          overflow: visible;
         }
+
+        /* The sliding lime bar */
+        .pb-item::before {
+          content: '';
+          position: absolute;
+          left: -32px;
+          top: 0;
+          bottom: 0;
+          width: 0;
+          background: var(--lime);
+          border-radius: 0 3px 3px 0;
+          transition: width 0.18s ease;
+        }
+        .pb-item:hover::before { width: 5px; }
 
         .pb-item-text { flex: 1; }
 
@@ -155,8 +214,8 @@ export default function Home() {
           font-weight: 700;
           letter-spacing: 0.15em;
           text-transform: uppercase;
-          color: rgba(255,255,255,0.4);
-          margin-bottom: 6px;
+          color: rgba(255,255,255,0.35);
+          margin-bottom: 5px;
           transition: color 0.15s ease;
         }
         .pb-item:hover .pb-item-tag { color: var(--lime); }
@@ -187,8 +246,8 @@ export default function Home() {
           transition: background 0.15s ease, transform 0.15s ease;
         }
         .pb-item:hover .pb-arrow {
-          background: rgba(197,255,46,0.12);
-          transform: translateX(3px);
+          background: rgba(197,255,46,0.13);
+          transform: translateX(4px);
         }
 
         /* fade-in stagger */
@@ -198,35 +257,50 @@ export default function Home() {
         .pb-fade:nth-child(3) { animation-delay: 0.19s; }
         @keyframes pbUp { to { opacity: 1; transform: none; } }
 
-        /* ── Footer ── */
+        /* ── Footer (#4) ── */
         .pb-footer {
-          padding: 32px 32px 20px;
+          padding: 0 32px 20px;
           display: flex;
           justify-content: space-between;
-          align-items: flex-end;
+          align-items: center;
+          border-top: 1px solid rgba(255,255,255,0.08);
+          margin: 24px 32px 0;
+          padding-top: 18px;
+          margin-left: 0;
+          margin-right: 0;
+          padding-left: 32px;
+          padding-right: 32px;
         }
         .pb-footer-brand {
-          font-size: 22px;
+          font-size: 20px;
           font-weight: 900;
           font-style: italic;
           letter-spacing: -0.02em;
           color: var(--lime);
           text-transform: uppercase;
         }
+        .pb-footer-meta {
+          font-size: 11px;
+          font-weight: 600;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+          color: rgba(255,255,255,0.25);
+        }
 
         /* ── Home indicator ── */
         .pb-indicator {
           width: 128px;
           height: 4px;
-          background: rgba(255,255,255,0.35);
+          background: rgba(255,255,255,0.3);
           border-radius: 99px;
-          margin: 0 auto 8px;
+          margin: 14px auto 10px;
         }
 
         @media (max-width: 480px) {
           .pb-main { padding: 12px 20px 0; }
-          .pb-footer { padding: 24px 20px 16px; }
+          .pb-footer { padding-left: 20px; padding-right: 20px; margin: 20px 0 0; }
           .pb-status { padding: 0 20px; }
+          .pb-item::before { left: -20px; }
         }
       `}</style>
 
@@ -254,13 +328,16 @@ export default function Home() {
 
           {/* Header */}
           <header className="pb-header">
-            <span className="pb-title-lime">TRM</span>
-            <span className="pb-title-playbook">Playbook</span>
-            <div className="pb-divider">
+            <div className="pb-title-block">
+              <span className="pb-title-trm">TRM</span>
+              <span className="pb-title-playbook">Playbook</span>
+            </div>
+            <div className="pb-divider-row">
               <p className="pb-subtitle">
                 Outpatient Orthopedic Physical Therapy<br />
                 <span className="pb-subtitle-accent">Train • Recover • Move</span>
               </p>
+              <div className="pb-badge">{tools.length} Tools</div>
             </div>
           </header>
 
@@ -292,6 +369,7 @@ export default function Home() {
         {/* Footer */}
         <footer className="pb-footer">
           <span className="pb-footer-brand">TRM</span>
+          <span className="pb-footer-meta">Clinic Tools · v2025</span>
         </footer>
 
         {/* iOS home indicator */}
