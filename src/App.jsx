@@ -10,7 +10,6 @@ const APREApp     = lazy(() => import("./apps/APREApp.jsx"));
 const AppShell = ({ children }) => (
   <div style={{
     background: "#0a0a0a",
-    minHeight: "100vh",
     minHeight: "100dvh",
     width: "100%",
     position: "relative",
