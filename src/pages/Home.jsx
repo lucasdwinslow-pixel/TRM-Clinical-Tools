@@ -46,7 +46,7 @@ export default function Home() {
           background-color: var(--bg);
           background-image:
             linear-gradient(rgba(0,0,0,0.82), rgba(0,0,0,0.92)),
-            url('/background.jpg');
+            url('https://lh3.googleusercontent.com/aida-public/AB6AXuAHH4-Tq2Zvh_shO7wNwSh9fTt3vl5zqHqG1KOrQ4q3VTQJBQfQHMY8TkqzNfglrpLNtfdX46wnNkXhU-cTKk2eO0uo-a-GT8oBqVVhzVEW0BI6OeO-j-q4Dm7F_SLO9rzEWHOMeQUPAm5JIGm-ruIPaUORw0wpk7X6lFQHCkt20rPygBb0FZwYRHddyg3A54q72YCoPA6EksES9hT4ChmgtlGlYeAge2wS25pCMGvSF3csGiwVwU8l57y-nnPEftF1HQ_ybJKiVrjr');
           background-size: cover;
           background-position: center;
           background-repeat: no-repeat;
