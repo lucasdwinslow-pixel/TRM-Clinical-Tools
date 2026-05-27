@@ -32,8 +32,6 @@ export default function Home() {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=Nothing+You+Could+Do&display=swap');
-
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         html, body { height: 100%; overscroll-behavior: none; }
 
@@ -48,7 +46,7 @@ export default function Home() {
           background-color: var(--bg);
           background-image:
             linear-gradient(rgba(0,0,0,0.82), rgba(0,0,0,0.92)),
-            url('https://lh3.googleusercontent.com/aida-public/AB6AXuAHH4-Tq2Zvh_shO7wNwSh9fTt3vl5zqHqG1KOrQ4q3VTQJBQfQHMY8TkqzNfglrpLNtfdX46wnNkXhU-cTKk2eO0uo-a-GT8oBqVVhzVEW0BI6OeO-j-q4Dm7F_SLO9rzEWHOMeQUPAm5JIGm-ruIPaUORw0wpk7X6lFQHCkt20rPygBb0FZwYRHddyg3A54q72YCoPA6EksES9hT4ChmgtlGlYeAge2wS25pCMGvSF3csGiwVwU8l57y-nnPEftF1HQ_ybJKiVrjr');
+            url('/background.jpg');
           background-size: cover;
           background-position: center;
           background-repeat: no-repeat;
@@ -93,21 +91,6 @@ export default function Home() {
         .pb-lockup {
           position: relative;
           display: inline-block;
-        }
-
-        .pb-rts {
-          position: absolute;
-          top: -10px;
-          left: -4px;
-          font-family: 'Nothing You Could Do', cursive;
-          font-size: clamp(18px, 4.5vw, 26px);
-          color: var(--lime);
-          white-space: nowrap;
-          transform: rotate(-8deg);
-          transform-origin: left center;
-          pointer-events: none;
-          line-height: 1;
-          letter-spacing: 0.01em;
         }
 
         .pb-divider {
@@ -235,10 +218,7 @@ export default function Home() {
               alt="TRM"
               className="pb-logo"
             />
-            <div className="pb-lockup">
-              <span className="pb-rts">Return to Sport</span>
-              <span className="pb-playbook">Playbook</span>
-            </div>
+            <span className="pb-playbook">Playbook</span>
             <div className="pb-divider">
               <p className="pb-subtitle">
                 Outpatient Orthopedic Physical Therapy<br />
