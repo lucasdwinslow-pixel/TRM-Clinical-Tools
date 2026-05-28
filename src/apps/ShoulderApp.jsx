@@ -550,7 +550,7 @@ function buildShoulderNote(d) {
   return lines.join("\n").trim();
 }
 
-async function saveSessionPDF(data) {
+async function saveSessionPDF(data, mode = "download") {
   const { PDFDocument, rgb, StandardFonts } = await getPdfLib();
   const doc  = await PDFDocument.create();
   const font = await doc.embedFont(StandardFonts.Helvetica);
@@ -558,9 +558,14 @@ async function saveSessionPDF(data) {
   const GRAY   = rgb(0.4, 0.4, 0.4);
   const LGRAY  = rgb(0.85, 0.85, 0.85);
   const BLACK_R = rgb(0.05, 0.05, 0.05);
-  const json    = JSON.stringify(data);
-  const encoded = btoa(unescape(encodeURIComponent(json)));
+  // Dual-field metadata: Subject + Keywords backup (some PDF viewers strip /Info on re-save)
+  const sessionJson = JSON.stringify(data);
+  const utf8Bytes = new TextEncoder().encode(sessionJson);
+  let binary = "";
+  utf8Bytes.forEach(b => { binary += String.fromCharCode(b); });
+  const encoded = btoa(binary);
   doc.setSubject("TRM_SHOULDER_V1:" + encoded);
+  doc.setKeywords(["TRM_SHOULDER_V1:" + encoded]); // Backup — Keywords survives more PDF viewers
   doc.setTitle("TRM Shoulder Session");
   const page = doc.addPage([612, 792]);
   const L = 48, R = 564, T = 744;
@@ -623,28 +628,88 @@ async function saveSessionPDF(data) {
   page2.drawLine({ start: { x: L2, y: 48 }, end: { x: R2p, y: 48 }, thickness: 0.5, color: LGRAY });
   page2.drawText("TRM Documentation Copy  —  Plain text for EMR entry.", { x: L2, y: 36, size: 7, font, color: GRAY });
   const pdfBytes = await doc.save();
+  const filename = `TRM_Shoulder_${new Date().toISOString().slice(0,10)}.pdf`;
   const blob = new Blob([pdfBytes], { type: "application/pdf" });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement("a");
-  a.href = url; a.download = `TRM_Shoulder_${new Date().toISOString().slice(0,10)}.pdf`; a.click();
-  URL.revokeObjectURL(url);
+
+  // SHARE mode — native OS share sheet (AirDrop, Save to Files, etc.)
+  if (mode === "share") {
+    const shareFile = new File([blob], filename, { type: "application/pdf" });
+    if (navigator.canShare && navigator.canShare({ files: [shareFile] })) {
+      try {
+        await navigator.share({ files: [shareFile], title: "TRM Shoulder Session PDF" });
+      } catch (err) {
+        if (err.name !== "AbortError") throw err;
+        // User dismissed share sheet — not an error
+      }
+      return "shared";
+    }
+    return "share-unsupported";
+  }
+
+  // DOWNLOAD mode — direct file save
+  const url = URL.createObjectURL(blob);
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+                (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+
+  if (!isIOS) {
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    // Safari sometimes ignores <a download> on blob URLs — open new tab as fallback
+    if (isSafari) {
+      setTimeout(() => { window.open(url, "_blank"); }, 100);
+      setTimeout(() => URL.revokeObjectURL(url), 90000);
+    } else {
+      setTimeout(() => URL.revokeObjectURL(url), 30000);
+    }
+    return "downloaded";
+  }
+  // iOS: <a download> is ignored — open in new tab so user can save via browser toolbar
+  window.open(url, "_blank");
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+  return "ios-tab";
 }
 
 async function loadSessionPDF(file, onData, onError) {
   try {
     const { PDFDocument } = await getPdfLib();
     const arrayBuffer = await file.arrayBuffer();
-    const doc = await PDFDocument.load(arrayBuffer);
-    const subject = doc.getSubject();
-    if (!subject || !subject.startsWith("TRM_SHOULDER_V1:")) {
-      onError("This PDF doesn't contain TRM Shoulder session data."); return;
+    const doc = await PDFDocument.load(arrayBuffer, { ignoreEncryption: true });
+
+    // Try Subject first, then Keywords fallback (some PDF viewers strip /Info on re-save)
+    let encoded = null;
+    const PREFIX = "TRM_SHOULDER_V1:";
+
+    const subject = doc.getSubject() || "";
+    if (subject.startsWith(PREFIX)) encoded = subject.slice(PREFIX.length);
+
+    if (!encoded) {
+      const rawKeywords = doc.getKeywords() || "";
+      // pdf-lib returns an Array when keywords were set via setKeywords([...]),
+      // but older saves stored a plain string — handle both gracefully.
+      const keywords = Array.isArray(rawKeywords) ? (rawKeywords[0] || "") : rawKeywords;
+      if (keywords.startsWith(PREFIX)) encoded = keywords.slice(PREFIX.length);
     }
-    const encoded    = subject.replace("TRM_SHOULDER_V1:", "");
-    const json       = decodeURIComponent(escape(atob(encoded)));
+
+    if (!encoded) {
+      onError(
+        "This PDF does not contain TRM Shoulder session data. " +
+        "Make sure you are uploading a PDF saved directly from the TRM app " +
+        "(not a print-to-PDF, screenshot, or file re-saved by another viewer)."
+      );
+      return;
+    }
+
+    const bytes = Uint8Array.from(atob(encoded), c => c.charCodeAt(0));
+    const json = new TextDecoder("utf-8").decode(bytes);
     const sessionData = JSON.parse(json);
     onData(sessionData);
   } catch (e) {
-    onError("Could not read session data from this PDF.");
+    onError("Could not read session data from this PDF. The file may be corrupted or was re-saved by an external viewer which stripped the embedded data. (" + e.message + ")");
   }
 }
 
@@ -2464,10 +2529,39 @@ export default function App() {
     { label: "Letter",      sub: "Physician Communication" },
   ];
 
-  const handleSave = async () => {
+  const handleSavePDF = async () => {
     setSaving(true);
-    try { await saveSessionPDF(data); }
-    catch (e) { setLoadMsg({ type: "error", text: "Save failed: " + e.message }); }
+    try {
+      const result = await saveSessionPDF(data, "download");
+      if (result === "ios-tab") {
+        setLoadMsg({ type: "success", text: "PDF opened in a new tab — tap the Share icon in your browser toolbar, then \"Save to Files\" to save it." });
+        setTimeout(() => setLoadMsg(null), 12000);
+      } else {
+        const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+        if (isSafari) {
+          setLoadMsg({ type: "success", text: "PDF saved. If no download dialog appeared, check the new tab that opened — use File → Export as PDF or the download icon to save it." });
+          setTimeout(() => setLoadMsg(null), 14000);
+        }
+      }
+    } catch (e) {
+      setLoadMsg({ type: "error", text: "Save failed: " + e.message });
+      setTimeout(() => setLoadMsg(null), 8000);
+    }
+    setSaving(false);
+  };
+
+  const handleAirDrop = async () => {
+    setSaving(true);
+    try {
+      const result = await saveSessionPDF(data, "share");
+      if (result === "share-unsupported") {
+        setLoadMsg({ type: "error", text: "Sharing is not supported in this browser. Use Save PDF instead." });
+        setTimeout(() => setLoadMsg(null), 6000);
+      }
+    } catch (e) {
+      setLoadMsg({ type: "error", text: "Share failed: " + e.message });
+      setTimeout(() => setLoadMsg(null), 8000);
+    }
     setSaving(false);
   };
 
@@ -2575,10 +2669,72 @@ export default function App() {
       </div>
 
       <div className="trm-fab" style={{ position: "fixed", bottom: 24, right: 24, zIndex: 200, display: "flex", alignItems: "center", gap: 8 }}>
-        <button onClick={() => setNewPtModal(true)} style={{ padding: "6px 11px", borderRadius: 7, border: `1px solid ${RED_BAD}44`, background: RED_BAD+"0f", color: RED_BAD, cursor: "pointer", fontSize: 10, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", boxShadow: "0 2px 10px rgba(0,0,0,0.5)" }}>New Patient</button>
-        <div style={{ width: 1, height: 22, background: BORDER }} />
-        <button onClick={() => fileInputRef.current.click()} style={{ padding: "6px 11px", borderRadius: 7, border: `1px solid ${BORDER}`, background: "#1c1c1c", color: "#999", cursor: "pointer", fontSize: 10, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", boxShadow: "0 2px 10px rgba(0,0,0,0.5)" }}>Load</button>
-        <button onClick={handleSave} disabled={saving} style={{ padding: "6px 13px", borderRadius: 7, border: `1px solid ${LIME}55`, background: LIME+"18", color: LIME, cursor: saving ? "default" : "pointer", fontSize: 10, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", boxShadow: `0 2px 10px ${LIME}18`, opacity: saving ? 0.6 : 1 }}>{saving ? "Saving…" : "Save PDF"}</button>
+
+        {/* Split: Reset | Load */}
+        <div style={{
+          display: "flex", alignItems: "stretch",
+          border: `1px solid ${BORDER}55`, borderRadius: 7, overflow: "hidden",
+          boxShadow: "0 1px 6px rgba(0,0,0,0.3)",
+        }}>
+          <button
+            onClick={() => setNewPtModal(true)}
+            style={{
+              padding: "7px 9px",
+              background: "rgba(248,113,113,0.04)", color: RED_BAD + "99",
+              border: "none", cursor: "pointer",
+              fontSize: 9, fontWeight: 800,
+              letterSpacing: "0.07em", textTransform: "uppercase",
+            }}>
+            Reset
+          </button>
+          <div style={{ width: 1, background: BORDER + "66", flexShrink: 0 }} />
+          <button
+            onClick={() => fileInputRef.current.click()}
+            style={{
+              padding: "7px 9px",
+              background: "rgba(255,255,255,0.03)", color: "#666",
+              border: "none", cursor: "pointer",
+              fontSize: 9, fontWeight: 800,
+              letterSpacing: "0.07em", textTransform: "uppercase",
+            }}>
+            Load
+          </button>
+        </div>
+
+        {/* Split: Save PDF | ⬆ AirDrop */}
+        <div style={{
+          display: "flex", alignItems: "stretch",
+          border: `1px solid ${LIME}28`, borderRadius: 7, overflow: "hidden",
+          boxShadow: `0 1px 6px ${LIME}0a`,
+          opacity: saving ? 0.5 : 1,
+        }}>
+          <button
+            onClick={handleSavePDF}
+            disabled={saving}
+            style={{
+              padding: "7px 11px",
+              background: LIME + "0c", color: LIME + "cc",
+              border: "none", cursor: saving ? "default" : "pointer",
+              fontSize: 9, fontWeight: 800,
+              letterSpacing: "0.07em", textTransform: "uppercase",
+            }}>
+            {saving ? "Saving…" : "Save PDF"}
+          </button>
+          <div style={{ width: 1, background: LIME + "22", flexShrink: 0 }} />
+          <button
+            onClick={handleAirDrop}
+            disabled={saving}
+            title="Share / AirDrop"
+            style={{
+              padding: "7px 9px",
+              background: LIME + "0c", color: LIME + "cc",
+              border: "none", cursor: saving ? "default" : "pointer",
+              fontSize: 12, lineHeight: 1, display: "flex", alignItems: "center",
+            }}>
+            ⬆
+          </button>
+        </div>
+
       </div>
     </div>
   );
