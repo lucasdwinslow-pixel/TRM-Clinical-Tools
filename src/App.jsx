@@ -5,6 +5,7 @@ import Home from "./pages/Home.jsx";
 const ACLApp      = lazy(() => import("./apps/ACLApp.jsx"));
 const ShoulderApp = lazy(() => import("./apps/ShoulderApp.jsx"));
 const APREApp     = lazy(() => import("./apps/APREApp.jsx"));
+const HipApp      = lazy(() => import("./apps/hip_testing_app_v1.jsx"));
 
 // Full-bleed black wrapper — prevents any white showing around app edges
 const AppShell = ({ children }) => (
@@ -136,6 +137,16 @@ export default function App() {
             <BackButton />
             <Suspense fallback={<AppLoader name="APRE Calculator" />}>
               <APREApp />
+            </Suspense>
+          </AppShell>
+        } />
+
+        {/* Hip Testing App */}
+        <Route path="/hip" element={
+          <AppShell>
+            <BackButton />
+            <Suspense fallback={<AppLoader name="Hip Testing App" />}>
+              <HipApp />
             </Suspense>
           </AppShell>
         } />
