@@ -120,7 +120,7 @@ function Field({ label, value, onChange, type="number", step="0.1", placeholder=
         autoCorrect="off" autoCapitalize="off" spellCheck={false}
         value={value} readOnly={readOnly}
         onChange={readOnly?undefined:e=>onChange(e.target.value)}
-        title={invalid?`Value out of expected range (${VALID_RANGES[fieldKey]?.[0]}–${VALID_RANGES[fieldKey]?.[1]})`:undefined}
+        title={invalid?`Value out of expected range (${VALID_RANGES[fieldKey]?.[0]}-${VALID_RANGES[fieldKey]?.[1]})`:undefined}
       />
     </div>
   );
@@ -203,7 +203,7 @@ function NewPatientModal({ open, onConfirm, onCancel }) {
 function buildNote(d) {
   const inv = d.patient.involvedSide, invR = inv==="Right", uninv = invR?"Left":"Right";
   const dyn = d.dynamo||{};
-  const lines=[]; const add=l=>lines.push(l); const br=()=>lines.push(""); const sub=l=>lines.push(`  • ${l}`); const sub2=l=>lines.push(`    — ${l}`);
+  const lines=[]; const add=l=>lines.push(l); const br=()=>lines.push(""); const sub=l=>lines.push(`  * ${l}`); const sub2=l=>lines.push(`    - ${l}`);
   const subIf=(c,l)=>{ if(c) sub(l); }; const sub2If=(c,l)=>{ if(c) sub2(l); };
 
   add("HIP TESTING & OUTCOME MEASURES"); add(`Date: ${d.patient.date||"[date]"}`);
@@ -211,7 +211,7 @@ function buildNote(d) {
   br();
 
   // ROM
-  const romFields = [["hipFlexR","hipFlexL","Hip Flexion","°"],["hipExtR","hipExtL","Hip Extension","°"],["hipAbdR","hipAbdL","Hip Abduction","°"],["hipAddR","hipAddL","Hip Adduction","°"],["hipIRR","hipIRL","Hip Internal Rotation","°"],["hipERR","hipERL","Hip External Rotation","°"]];
+  const romFields = [["hipFlexR","hipFlexL","Hip Flexion","deg"],["hipExtR","hipExtL","Hip Extension","deg"],["hipAbdR","hipAbdL","Hip Abduction","deg"],["hipAddR","hipAddL","Hip Adduction","deg"],["hipIRR","hipIRL","Hip Internal Rotation","deg"],["hipERR","hipERL","Hip External Rotation","deg"]];
   const hasROM = romFields.some(([r,l])=>hasVal(d[r])||hasVal(d[l]));
   if(hasROM) {
     add("HIP RANGE OF MOTION:");
@@ -219,11 +219,11 @@ function buildNote(d) {
       if(!hasVal(d[rKey])&&!hasVal(d[lKey])) return;
       const rVal=d[rKey], lVal=d[lKey];
       const invVal=invR?rVal:lVal, uninvVal=invR?lVal:rVal;
-      let line=`  • ${name}: R ${rVal||"—"}${unit} / L ${lVal||"—"}${unit}`;
+      let line=`  * ${name}: R ${rVal||"-"} ${unit} / L ${lVal||"-"} ${unit}`;
       if(hasVal(invVal)&&hasVal(uninvVal)) {
         const diff=Math.abs(toNum(invVal)-toNum(uninvVal)).toFixed(0);
         const defSide=toNum(invVal)<toNum(uninvVal)?`${inv} deficit`:"Equal or inv dominant";
-        line+=`  [Side diff: ${diff}${unit} — ${defSide}]`;
+        line+=`  [Side diff: ${diff} ${unit} - ${defSide}]`;
       }
       add(line);
     });
@@ -239,39 +239,39 @@ function buildNote(d) {
   ];
   const hasDyn = dynMoves.some(([r,l])=>hasVal(dyn[r])||hasVal(dyn[l]));
   if(hasDyn) {
-    add("ISOMETRIC HIP STRENGTH (VALD Dynamo — N):");
+    add("ISOMETRIC HIP STRENGTH (VALD Dynamo - N):");
     const lsiVals=[];
     dynMoves.forEach(([pfR,pfL,tpfR,tpfL,name])=>{
       if(!hasVal(dyn[pfR])&&!hasVal(dyn[pfL])) return;
       const lsi=invR?calcLSI(dyn[pfR],dyn[pfL]):calcLSI(dyn[pfL],dyn[pfR]);
       const tpfAsym=calcAsym(dyn[tpfR],dyn[tpfL]);
       if(lsi) lsiVals.push(parseFloat(lsi));
-      let line=`  • ${name}: L ${dyn[pfL]||"—"} N / R ${dyn[pfR]||"—"} N`;
-      if(lsi) line+=`  |  LSI ${lsi}%${parseFloat(lsi)>=90?" ✓":" ✗"}`;
+      let line=`  * ${name}: L ${dyn[pfL]||"-"} N / R ${dyn[pfR]||"-"} N`;
+      if(lsi) line+=`  |  LSI ${lsi}%${parseFloat(lsi)>=90?" [PASS]":" [FAIL]"}`;
       add(line);
       if(hasVal(dyn[tpfR])&&hasVal(dyn[tpfL])) {
-        add(`    — TPF: L ${dyn[tpfL]||"—"} ms / R ${dyn[tpfR]||"—"} ms${tpfAsym?`  |  Asym ${tpfAsym}%${parseFloat(tpfAsym)<=10?" ✓":" ✗"}`:""}`);
+        add(`    - TPF: L ${dyn[tpfL]||"-"} ms / R ${dyn[tpfR]||"-"} ms${tpfAsym?`  |  Asym ${tpfAsym}%${parseFloat(tpfAsym)<=10?" [PASS]":" [FAIL]"}`:""}`);
       }
     });
     if(lsiVals.length>0) {
       const avg=(lsiVals.reduce((a,b)=>a+b,0)/lsiVals.length).toFixed(1);
-      add(`  • Average Dynamo LSI: ${avg}%  ${parseFloat(avg)>=90?"✓ Meets >90% threshold":"✗ Below 90% threshold"}`);
+      add(`  * Average Dynamo LSI: ${avg}%  ${parseFloat(avg)>=90?"[PASS] Meets >90% threshold":"[FAIL] Below 90% threshold"}`);
     }
-    sub("Benchmark: LSI ≥90% and TPF asymmetry <10% for all tested movements; Average LSI >90%.");
+    sub("Benchmark: LSI >=90% and TPF asymmetry <10% for all tested movements; Average LSI >90%.");
     br();
   }
 
   // IMTP
   const imt=d.imtp||{};
   if(hasVal(imt.pfR)||hasVal(imt.pfL)) {
-    add("ISOMETRIC MID-THIGH PULL (VALD ForceDecks — N):");
+    add("ISOMETRIC MID-THIGH PULL (VALD ForceDecks - N):");
     const pfAsym=calcAsym(imt.pfR,imt.pfL);
     const tpfAsym=calcAsym(imt.tpfR,imt.tpfL);
-    sub(`Peak Force: R ${imt.pfR||"—"} N / L ${imt.pfL||"—"} N`);
-    sub2If(pfAsym!==null,`Force Asymmetry: ${pfAsym}%${parseFloat(pfAsym)<=10?" ✓ Within 10% threshold":parseFloat(pfAsym)<=15?" — Borderline":" ✗ Exceeds threshold"}`);
+    sub(`Peak Force: R ${imt.pfR||"-"} N / L ${imt.pfL||"-"} N`);
+    sub2If(pfAsym!==null,`Force Asymmetry: ${pfAsym}%${parseFloat(pfAsym)<=10?" [PASS] Within 10% threshold":parseFloat(pfAsym)<=15?" [BORDERLINE]":" [FAIL] Exceeds threshold"}`);
     if(hasVal(imt.tpfR)||hasVal(imt.tpfL)) {
-      sub(`Time to Peak Force: R ${imt.tpfR||"—"} ms / L ${imt.tpfL||"—"} ms`);
-      sub2If(tpfAsym!==null,`TPF Asymmetry: ${tpfAsym}%${parseFloat(tpfAsym)<=10?" ✓ Within 10% threshold":" ✗ Exceeds threshold"}`);
+      sub(`Time to Peak Force: R ${imt.tpfR||"-"} ms / L ${imt.tpfL||"-"} ms`);
+      sub2If(tpfAsym!==null,`TPF Asymmetry: ${tpfAsym}%${parseFloat(tpfAsym)<=10?" [PASS] Within 10% threshold":" [FAIL] Exceeds threshold"}`);
     }
     br();
   }
@@ -281,9 +281,9 @@ function buildNote(d) {
   if(hasVal(cmj.jumpHeight)||hasVal(cmj.eccAsym)||hasVal(cmj.concAsym)||hasVal(cmj.cov)) {
     add("COUNTERMOVEMENT JUMP (VALD ForceDecks):");
     subIf(hasVal(cmj.jumpHeight),`Jump Height: ${cmj.jumpHeight} cm`);
-    if(hasVal(cmj.eccAsym)) sub(`Max Eccentric Braking Impulse Asymmetry: ${cmj.eccAsym}%${parseFloat(cmj.eccAsym)<=10?" ✓":" ✗"}`);
-    if(hasVal(cmj.concAsym)) sub(`Max Concentric Impulse Asymmetry: ${cmj.concAsym}%${parseFloat(cmj.concAsym)<=10?" ✓":" ✗"}`);
-    if(hasVal(cmj.cov)) sub(`Coefficient of Variation (CoV): ${cmj.cov}%${parseFloat(cmj.cov)<=10?" ✓":" ✗"}`);
+    if(hasVal(cmj.eccAsym)) sub(`Max Eccentric Braking Impulse Asymmetry: ${cmj.eccAsym}%${parseFloat(cmj.eccAsym)<=10?" [PASS]":" [FAIL]"}`);
+    if(hasVal(cmj.concAsym)) sub(`Max Concentric Impulse Asymmetry: ${cmj.concAsym}%${parseFloat(cmj.concAsym)<=10?" [PASS]":" [FAIL]"}`);
+    if(hasVal(cmj.cov)) sub(`Coefficient of Variation (CoV): ${cmj.cov}%${parseFloat(cmj.cov)<=10?" [PASS]":" [FAIL]"}`);
     subIf(hasVal(cmj.modRSI),`Modified RSI: ${cmj.modRSI}`);
     sub("Benchmark: Ecc impulse asym <10%, Conc impulse asym <10%, CoV <10%.");
     br();
@@ -294,17 +294,17 @@ function buildNote(d) {
   if(hasVal(slh.rPeakForce)||hasVal(slh.lPeakForce)||hasVal(slh.rTTS)||hasVal(slh.lTTS)) {
     add("SINGLE LEG LAND AND HOLD (VALD ForceDecks):");
     if(hasVal(slh.rPeakForce)||hasVal(slh.lPeakForce)) {
-      sub(`Peak Landing Force: R ${slh.rPeakForce||"—"} N / L ${slh.lPeakForce||"—"} N`);
+      sub(`Peak Landing Force: R ${slh.rPeakForce||"-"} N / L ${slh.lPeakForce||"-"} N`);
       if(hasVal(slh.rPeakForce)&&hasVal(slh.lPeakForce)) {
         const fa=calcAsym(slh.rPeakForce,slh.lPeakForce);
-        sub2If(fa!==null,`Force Asymmetry: ${fa}%${parseFloat(fa)<=10?" ✓ Within threshold":parseFloat(fa)<=15?" — Borderline":" ✗ Exceeds threshold"}`);
+        sub2If(fa!==null,`Force Asymmetry: ${fa}%${parseFloat(fa)<=10?" [PASS] Within threshold":parseFloat(fa)<=15?" [BORDERLINE]":" [FAIL] Exceeds threshold"}`);
       }
     }
     if(hasVal(slh.rTTS)||hasVal(slh.lTTS)) {
-      sub(`Time to Stabilization: R ${slh.rTTS||"—"} s / L ${slh.lTTS||"—"} s`);
+      sub(`Time to Stabilization: R ${slh.rTTS||"-"} s / L ${slh.lTTS||"-"} s`);
       if(hasVal(slh.rTTS)&&hasVal(slh.lTTS)) {
         const ta=calcAsym(slh.rTTS,slh.lTTS);
-        sub2If(ta!==null,`TTS Asymmetry: ${ta}%${parseFloat(ta)<=10?" ✓ Within threshold":parseFloat(ta)<=15?" — Borderline":" ✗ Exceeds threshold"}`);
+        sub2If(ta!==null,`TTS Asymmetry: ${ta}%${parseFloat(ta)<=10?" [PASS] Within threshold":parseFloat(ta)<=15?" [BORDERLINE]":" [FAIL] Exceeds threshold"}`);
       }
     }
     br();
@@ -320,22 +320,22 @@ function buildNote(d) {
       sub(`${name}:`);
       if(hasVal(i)) sub2(`${inv} (Involved): ${i} ${unit}`);
       if(hasVal(u)) sub2(`${uninv} (Uninvolved): ${u} ${unit}`);
-      if(lsiVal!==null) sub2(`LSI: ${lsiVal}%${parseFloat(lsiVal)>=90?" ✓":" ✗"}`);
+      if(lsiVal!==null) sub2(`LSI: ${lsiVal}%${parseFloat(lsiVal)>=90?" [PASS]":" [FAIL]"}`);
     });
-    sub("Benchmark: LSI ≥90% meets criteria. 80–89% borderline. <80% does not meet criteria.");
+    sub("Benchmark: LSI >=90% meets criteria. 80-89% borderline. <80% does not meet criteria.");
     br();
   }
 
   if(hasVal(d.agilityTime)) {
-    add("AGILITY TESTING:"); sub(`Pro Agility Test (5-10-5) — Best Time: ${d.agilityTime} sec`); br();
+    add("AGILITY TESTING:"); sub(`Pro Agility Test (5-10-5) - Best Time: ${d.agilityTime} sec`); br();
   }
 
   const hasProa = hasVal(d.iHOT)||hasVal(d.hosSport)||hasVal(d.tampa);
   if(hasProa) {
     add("PATIENT-REPORTED OUTCOMES:");
-    if(hasVal(d.iHOT)) sub(`iHOT-33: ${d.iHOT}/100${parseFloat(d.iHOT)>=70?" ✓ Acceptable function (≥70)":parseFloat(d.iHOT)>=50?" — Moderate dysfunction":" ✗ Significant dysfunction (<50)"}`);
-    if(hasVal(d.hosSport)) sub(`HOS-Sport: ${d.hosSport}%${parseFloat(d.hosSport)>=74?" ✓ Meets RTS threshold (≥74%)":parseFloat(d.hosSport)>=60?" — Approaching threshold":" ✗ Below threshold"}`);
-    if(hasVal(d.tampa)) sub(`Tampa Scale of Kinesiophobia (TSK-11): ${d.tampa}${parseFloat(d.tampa)<=17?" ✓ Acceptable fear levels (≤17)":parseFloat(d.tampa)<=22?" — Mild kinesiophobia":" ✗ Elevated kinesiophobia (>22)"}`);
+    if(hasVal(d.iHOT)) sub(`iHOT-33: ${d.iHOT}/100${parseFloat(d.iHOT)>=70?" [PASS] Acceptable function (>=70)":parseFloat(d.iHOT)>=50?" [MODERATE] Moderate dysfunction":" [FAIL] Significant dysfunction (<50)"}`);
+    if(hasVal(d.hosSport)) sub(`HOS-Sport: ${d.hosSport}%${parseFloat(d.hosSport)>=74?" [PASS] Meets RTS threshold (>=74%)":parseFloat(d.hosSport)>=60?" [APPROACHING] Approaching threshold":" [FAIL] Below threshold"}`);
+    if(hasVal(d.tampa)) sub(`Tampa Scale of Kinesiophobia (TSK-11): ${d.tampa}${parseFloat(d.tampa)<=17?" [PASS] Acceptable fear levels (<=17)":parseFloat(d.tampa)<=22?" [MILD] Mild kinesiophobia":" [ELEVATED] Elevated kinesiophobia (>22)"}`);
   }
 
   return lines.join("\n").trim();
@@ -354,12 +354,11 @@ function buildLetter(d, ptName, therapistName, clinic, impression) {
 
   add(cl); add(today); br();
   add(`Dr. ${surg}`); br();
-  add(`Re: ${pt} — Hip Rehabilitation Progress Update`); br();
+  add(`Re: ${pt} - Hip Rehabilitation Progress Update`); br();
   add(`Dear Dr. ${surg},`); br();
   add(`I am writing to share a progress update on ${pt}, who is currently ${wks} post-op from ${dx} and has been receiving physical therapy here at ${cl}. We recently completed a formal return-to-sport testing battery and wanted to share key findings.`);
   br();
 
-  // Dynamo summary
   const dynMoves=[["abdPFR","abdPFL","Hip Abduction"],["addPFR","addPFL","Hip Adduction"],["erPFR","erPFL","Hip External Rotation"],["irPFR","irPFL","Hip Internal Rotation"]];
   const dynResults=dynMoves.map(([r,l,name])=>{
     const lsi=invR?calcLSI(dyn[r],dyn[l]):calcLSI(dyn[l],dyn[r]);
@@ -377,19 +376,17 @@ function buildLetter(d, ptName, therapistName, clinic, impression) {
     add(sLine); br();
   }
 
-  // IMTP
   const imt=d.imtp||{};
   const pfAsym=calcAsym(imt.pfR,imt.pfL);
   if(pfAsym!==null) {
-    add("FORCE PLATE — ISOMETRIC MID-THIGH PULL");
+    add("FORCE PLATE - ISOMETRIC MID-THIGH PULL");
     const met=parseFloat(pfAsym)<=10;
     add(`Peak force asymmetry on the isometric mid-thigh pull was ${pfAsym}%${met?", meeting the <10% threshold":", which exceeds the <10% threshold for return-to-sport consideration"}.`); br();
   }
 
-  // CMJ
   const cmj=d.cmj||{};
   if(hasVal(cmj.eccAsym)||hasVal(cmj.concAsym)) {
-    add("FORCE PLATE — COUNTERMOVEMENT JUMP");
+    add("FORCE PLATE - COUNTERMOVEMENT JUMP");
     let cLine=`Countermovement jump testing revealed `;
     if(hasVal(cmj.eccAsym)) cLine+=`eccentric braking impulse asymmetry of ${cmj.eccAsym}% (threshold <10%)`;
     if(hasVal(cmj.concAsym)) cLine+=`${hasVal(cmj.eccAsym)?" and ":""}concentric impulse asymmetry of ${cmj.concAsym}% (threshold <10%)`;
@@ -397,7 +394,6 @@ function buildLetter(d, ptName, therapistName, clinic, impression) {
     add(cLine+"."); br();
   }
 
-  // Hops
   const hAvgs={ singleI:hopAvgIn(d.hops.singleI),singleU:hopAvgIn(d.hops.singleU),tripleI:hopAvgIn(d.hops.tripleI),tripleU:hopAvgIn(d.hops.tripleU),crossI:hopAvgIn(d.hops.crossI),crossU:hopAvgIn(d.hops.crossU) };
   const hLSIs={ single:calcLSI(hAvgs.singleI,hAvgs.singleU),triple:calcLSI(hAvgs.tripleI,hAvgs.tripleU),cross:calcLSI(hAvgs.crossI,hAvgs.crossU),timed:calcTimedLSI(hopAvgTimed(d.hops.timedI),hopAvgTimed(d.hops.timedU)) };
   const hopEntries=[["Single Hop",hLSIs.single],["Triple Hop",hLSIs.triple],["Crossover Hop",hLSIs.cross],["6-Meter Timed Hop",hLSIs.timed]].filter(([,v])=>v!==null);
@@ -436,7 +432,6 @@ function Tab1({ data:d, setData:setD }) {
   const cmj=d.cmj||{};
   const slh=d.slLandHold||{};
 
-  // Dynamo LSIs
   const dynLSIs={
     abd: invR?calcLSI(dyn.abdPFR,dyn.abdPFL):calcLSI(dyn.abdPFL,dyn.abdPFR),
     add: invR?calcLSI(dyn.addPFR,dyn.addPFL):calcLSI(dyn.addPFL,dyn.addPFR),
@@ -450,18 +445,12 @@ function Tab1({ data:d, setData:setD }) {
   const allDynLSIs=[dynLSIs.abd,dynLSIs.add,dynLSIs.er,dynLSIs.ir].filter(v=>v!==null).map(parseFloat);
   const dynamoAvgLSI=allDynLSIs.length>0?(allDynLSIs.reduce((a,b)=>a+b,0)/allDynLSIs.length).toFixed(1):null;
 
-  // IMTP
   const imtpPFAsym=calcAsym(imt.pfR,imt.pfL);
   const imtpTPFAsym=calcAsym(imt.tpfR,imt.tpfL);
 
-  // CMJ pass/fail
-  const cmjPasses={ ecc:hasVal(cmj.eccAsym)?parseFloat(cmj.eccAsym)<=10:null, conc:hasVal(cmj.concAsym)?parseFloat(cmj.concAsym)<=10:null, cov:hasVal(cmj.cov)?parseFloat(cmj.cov)<=10:null };
-
-  // SLLAH
   const slForceAsym=calcAsym(slh.rPeakForce,slh.lPeakForce);
   const slTTSAsym=calcAsym(slh.rTTS,slh.lTTS);
 
-  // Hops
   const hopAvgs={
     singleI:hopAvgIn(d.hops.singleI),singleU:hopAvgIn(d.hops.singleU),
     tripleI:hopAvgIn(d.hops.tripleI),tripleU:hopAvgIn(d.hops.tripleU),
@@ -472,7 +461,6 @@ function Tab1({ data:d, setData:setD }) {
     cross:calcLSI(hopAvgs.crossI,hopAvgs.crossU), timed:calcTimedLSI(hopAvgTimed(d.hops.timedI),hopAvgTimed(d.hops.timedU)),
   };
 
-  // Agility norms
   const agilityNorms={
     "Male Elite":{mean:4.22,sd:0.15},"Female Elite":{mean:4.73,sd:0.18},
     "Male Collegiate":{mean:4.38,sd:0.20},"Female Collegiate":{mean:4.92,sd:0.22},
@@ -487,7 +475,6 @@ function Tab1({ data:d, setData:setD }) {
   const generateNote=()=>{ const n=buildNote(d); setD(p=>({...p,noteText:n})); };
   const copyNote=()=>{ navigator.clipboard?.writeText(d.noteText).then(()=>{ setNoteCopied(true); setTimeout(()=>setNoteCopied(false),2500); }); };
 
-  // DynamoMovement sub-section
   const DynamoSection=({label,pfR,pfL,tpfR,tpfL,lsi,tpfAsym,pfRKey,pfLKey,tpfRKey,tpfLKey})=>(
     <div style={{ marginBottom:14,background:"#111",borderRadius:10,border:`1px solid ${BORDER}`,padding:"12px 14px" }}>
       <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10 }}>
@@ -504,7 +491,7 @@ function Tab1({ data:d, setData:setD }) {
         <div><label style={lbl}>Right TPF (ms)</label><input style={inp} type="number" inputMode="decimal" placeholder="—" value={tpfR} onChange={e=>setDyn(tpfRKey,e.target.value)}/></div>
       </R4>
       {(lsi||tpfAsym)&&<div style={{ display:"flex",gap:16,flexWrap:"wrap" }}>
-        {lsi&&<Badge pass={parseFloat(lsi)>=90} label={`PF LSI ${parseFloat(lsi)>=90?"meets ≥90%":"below 90%"}`}/>}
+        {lsi&&<Badge pass={parseFloat(lsi)>=90} label={`PF LSI ${parseFloat(lsi)>=90?"meets >=90%":"below 90%"}`}/>}
         {tpfAsym&&<Badge pass={parseFloat(tpfAsym)<=10} label={`TPF Asym ${parseFloat(tpfAsym)<=10?"<10%":">10%"}`}/>}
       </div>}
     </div>
@@ -512,7 +499,6 @@ function Tab1({ data:d, setData:setD }) {
 
   return (
     <div>
-      {/* Patient Info */}
       <Card title="Patient Information" id="patient" focusable activeCard={activeCard} setActiveCard={setActiveCard}>
         <R3 mb={12}>
           <Field label="Date" value={d.patient.date} onChange={v=>setP("date",v)} type="text" placeholder="MM/DD/YYYY"/>
@@ -520,7 +506,7 @@ function Tab1({ data:d, setData:setD }) {
           <Field label="Weeks Post-Op" value={d.patient.weeksPostOp} onChange={v=>setP("weeksPostOp",v)} placeholder="e.g. 24"/>
         </R3>
         <R2 mb={12}>
-          <Field label="Diagnosis / Procedure" value={d.patient.diagnosis} onChange={v=>setP("diagnosis",v)} type="text" placeholder="e.g. Hip Arthroscopy — Labral Repair"/>
+          <Field label="Diagnosis / Procedure" value={d.patient.diagnosis} onChange={v=>setP("diagnosis",v)} type="text" placeholder="e.g. Hip Arthroscopy - Labral Repair"/>
           <Field label="Body Weight" unit="lbs" value={d.bw} onChange={v=>sd("bw",v)} fieldKey="bw" placeholder="e.g. 175"/>
         </R2>
         <div style={{ display:"flex",alignItems:"center",gap:20,flexWrap:"wrap" }}>
@@ -533,7 +519,6 @@ function Tab1({ data:d, setData:setD }) {
         </div>
       </Card>
 
-      {/* Hip ROM */}
       <Card title="Hip Range of Motion" id="rom" focusable activeCard={activeCard} setActiveCard={setActiveCard}>
         <div style={{ fontSize:11,color:MUTED,marginBottom:14,lineHeight:1.6 }}>
           Enter bilateral measurements in degrees. Flag: side-to-side difference &gt;10° or value &gt;15% below normative range.
@@ -571,16 +556,15 @@ function Tab1({ data:d, setData:setD }) {
           );
         })}
         <div style={{ marginTop:8,padding:"8px 14px",background:"#0f0f0f",borderRadius:6,border:`1px solid ${BORDER}`,display:"flex",gap:20,flexWrap:"wrap" }}>
-          {[["≤10° Difference — Symmetric",LIME],["Involved Side Deficit",GOLD],["Value Out of Range",RED_BAD]].map(([l,c])=>(
+          {[["<=10° Difference — Symmetric",LIME],["Involved Side Deficit",GOLD],["Value Out of Range",RED_BAD]].map(([l,c])=>(
             <span key={l} style={{ fontSize:11,fontWeight:700,color:c }}>■ {l}</span>
           ))}
         </div>
       </Card>
 
-      {/* Dynamo Strength */}
       <Card title="Isometric Hip Strength — VALD Dynamo" id="dynamo" focusable activeCard={activeCard} setActiveCard={setActiveCard}>
         <div style={{ fontSize:11,color:MUTED,marginBottom:14,lineHeight:1.6 }}>
-          Enter peak force (N) and time to peak force (ms) per side. LSI = involved/uninvolved × 100. Pass: LSI ≥90%, TPF asymmetry &lt;10%, Average LSI &gt;90%.
+          Enter peak force (N) and time to peak force (ms) per side. LSI = involved/uninvolved × 100. Pass: LSI >=90%, TPF asymmetry &lt;10%, Average LSI &gt;90%.
         </div>
         <DynamoSection label="Hip Abduction" pfR={dyn.abdPFR} pfL={dyn.abdPFL} tpfR={dyn.abdTPFR} tpfL={dyn.abdTPFL} lsi={dynLSIs.abd} tpfAsym={dynTPFAsyms.abd} pfRKey="abdPFR" pfLKey="abdPFL" tpfRKey="abdTPFR" tpfLKey="abdTPFL"/>
         <DynamoSection label="Hip Adduction" pfR={dyn.addPFR} pfL={dyn.addPFL} tpfR={dyn.addTPFR} tpfL={dyn.addTPFL} lsi={dynLSIs.add} tpfAsym={dynTPFAsyms.add} pfRKey="addPFR" pfLKey="addPFL" tpfRKey="addTPFR" tpfLKey="addTPFL"/>
@@ -597,12 +581,11 @@ function Tab1({ data:d, setData:setD }) {
         )}
         {dynamoAvgLSI&&(
           <div style={{ marginTop:8,fontSize:12,fontWeight:800,color:parseFloat(dynamoAvgLSI)>=90?LIME:RED_BAD }}>
-            {parseFloat(dynamoAvgLSI)>=90?"✓":"✗"} Average Dynamo LSI: {dynamoAvgLSI}% {parseFloat(dynamoAvgLSI)>=90?"— Meets >90% threshold":"— Does not meet >90% threshold"}
+            {parseFloat(dynamoAvgLSI)>=90?"[PASS]":"[FAIL]"} Average Dynamo LSI: {dynamoAvgLSI}% {parseFloat(dynamoAvgLSI)>=90?"— Meets >90% threshold":"— Does not meet >90% threshold"}
           </div>
         )}
       </Card>
 
-      {/* IMTP */}
       <Card title="Isometric Mid-Thigh Pull — VALD ForceDecks" id="imtp" focusable activeCard={activeCard} setActiveCard={setActiveCard}>
         <div style={{ fontSize:11,color:MUTED,marginBottom:14,lineHeight:1.6 }}>
           Bilateral IMTP from VALD ForceDecks. Enter peak force (N) and time to peak force (ms) per side. Pass: both asymmetries &lt;10%.
@@ -641,7 +624,6 @@ function Tab1({ data:d, setData:setD }) {
         )}
       </Card>
 
-      {/* CMJ */}
       <Card title="Countermovement Jump — VALD ForceDecks" id="cmj" focusable activeCard={activeCard} setActiveCard={setActiveCard}>
         <div style={{ fontSize:11,color:MUTED,marginBottom:14,lineHeight:1.6 }}>
           Enter asymmetry values directly from VALD output. Pass: Max eccentric impulse asym &lt;10%, Max concentric impulse asym &lt;10%, CoV &lt;10%.
@@ -661,29 +643,28 @@ function Tab1({ data:d, setData:setD }) {
           <div>
             <label style={lbl}>Ecc Impulse Asym (%)</label>
             <input style={isOOR("cmjAsym",cmj.eccAsym)?inpInvalid:inp} type="number" inputMode="decimal" step="0.1" placeholder="—" value={cmj.eccAsym} onChange={e=>setCMJ("eccAsym",e.target.value)}/>
-            {hasVal(cmj.eccAsym)&&<div style={{ marginTop:4,fontSize:11,fontWeight:700,color:asymColor(cmj.eccAsym) }}>{parseFloat(cmj.eccAsym)<=10?"✓ Meets <10%":"✗ Exceeds 10%"}</div>}
+            {hasVal(cmj.eccAsym)&&<div style={{ marginTop:4,fontSize:11,fontWeight:700,color:asymColor(cmj.eccAsym) }}>{parseFloat(cmj.eccAsym)<=10?"[PASS] Meets <10%":"[FAIL] Exceeds 10%"}</div>}
           </div>
           <div>
             <label style={lbl}>Conc Impulse Asym (%)</label>
             <input style={isOOR("cmjAsym",cmj.concAsym)?inpInvalid:inp} type="number" inputMode="decimal" step="0.1" placeholder="—" value={cmj.concAsym} onChange={e=>setCMJ("concAsym",e.target.value)}/>
-            {hasVal(cmj.concAsym)&&<div style={{ marginTop:4,fontSize:11,fontWeight:700,color:asymColor(cmj.concAsym) }}>{parseFloat(cmj.concAsym)<=10?"✓ Meets <10%":"✗ Exceeds 10%"}</div>}
+            {hasVal(cmj.concAsym)&&<div style={{ marginTop:4,fontSize:11,fontWeight:700,color:asymColor(cmj.concAsym) }}>{parseFloat(cmj.concAsym)<=10?"[PASS] Meets <10%":"[FAIL] Exceeds 10%"}</div>}
           </div>
           <div>
             <label style={lbl}>CoV (%)</label>
             <input style={isOOR("cmjCov",cmj.cov)?inpInvalid:inp} type="number" inputMode="decimal" step="0.1" placeholder="—" value={cmj.cov} onChange={e=>setCMJ("cov",e.target.value)}/>
-            {hasVal(cmj.cov)&&<div style={{ marginTop:4,fontSize:11,fontWeight:700,color:asymColor(cmj.cov) }}>{parseFloat(cmj.cov)<=10?"✓ CoV <10%":"✗ CoV >10%"}</div>}
+            {hasVal(cmj.cov)&&<div style={{ marginTop:4,fontSize:11,fontWeight:700,color:asymColor(cmj.cov) }}>{parseFloat(cmj.cov)<=10?"[PASS] CoV <10%":"[FAIL] CoV >10%"}</div>}
           </div>
         </R3>
         {(hasVal(cmj.eccAsym)||hasVal(cmj.concAsym)||hasVal(cmj.cov))&&(
           <div style={{ marginTop:8,padding:"8px 14px",background:"#0f0f0f",borderRadius:6,border:`1px solid ${BORDER}`,display:"flex",gap:20,flexWrap:"wrap" }}>
-            {[["≤10% — Meets Criteria",LIME],["10–15% — Borderline",GOLD],[">15% — Does Not Meet",RED_BAD]].map(([l,c])=>(
+            {[["<=10% — Meets Criteria",LIME],["10-15% — Borderline",GOLD],[">15% — Does Not Meet",RED_BAD]].map(([l,c])=>(
               <span key={l} style={{ fontSize:11,fontWeight:700,color:c }}>■ {l}</span>
             ))}
           </div>
         )}
       </Card>
 
-      {/* SLLAH */}
       <Card title="Single Leg Land and Hold — VALD ForceDecks" id="sllah" focusable activeCard={activeCard} setActiveCard={setActiveCard}>
         <div style={{ fontSize:11,color:MUTED,marginBottom:14,lineHeight:1.6 }}>
           Drop landing from standardized height, hold 3 seconds. Pass: Time to stabilization asymmetry &lt;10%, Peak landing force asymmetry &lt;10%.
@@ -722,10 +703,9 @@ function Tab1({ data:d, setData:setD }) {
         )}
       </Card>
 
-      {/* Hop Testing */}
       <Card title="Hop Testing" id="hops" focusable activeCard={activeCard} setActiveCard={setActiveCard}>
         <div style={{ fontSize:11,color:MUTED,marginBottom:14,lineHeight:1.6 }}>
-          Enter up to 3 trials per side in feet and inches. Average (inches) used for LSI. Pass: LSI ≥90%.
+          Enter up to 3 trials per side in feet and inches. Average (inches) used for LSI. Pass: LSI >=90%.
         </div>
         {[
           ["Single Hop","singleI","singleU",hopLSIs.single],
@@ -811,13 +791,12 @@ function Tab1({ data:d, setData:setD }) {
           </div>
         </div>
         <div style={{ marginTop:10,padding:"10px 16px",background:"#0f0f0f",borderRadius:8,border:`1px solid ${BORDER}`,display:"flex",gap:20,flexWrap:"wrap" }}>
-          {[["≥90% — RTS Met",LIME],["80–89% — Borderline",GOLD],["<80% — Not Met",RED_BAD]].map(([l,c])=>(
+          {[[">=90% — RTS Met",LIME],["80-89% — Borderline",GOLD],["<80% — Not Met",RED_BAD]].map(([l,c])=>(
             <span key={l} style={{ fontSize:11,fontWeight:700,color:c }}>■ {l}</span>
           ))}
         </div>
       </Card>
 
-      {/* Agility */}
       <Card title="Agility Testing" id="agility" focusable activeCard={activeCard} setActiveCard={setActiveCard}>
         <div style={{ fontSize:11,color:MUTED,marginBottom:14 }}>Sports-specific testing. Example: Pro Agility Test (5-10-5). Record best time. Lower is better.</div>
         <R3>
@@ -842,41 +821,40 @@ function Tab1({ data:d, setData:setD }) {
         )}
       </Card>
 
-      {/* PROs */}
       <Card title="Patient-Reported Outcomes" id="pro" focusable activeCard={activeCard} setActiveCard={setActiveCard}>
         <div style={{ fontSize:11,color:MUTED,marginBottom:14,lineHeight:1.6 }}>
-          iHOT-33 ≥70 = acceptable function. HOS-Sport ≥74% = RTS threshold. TSK-11 ≤17 = acceptable fear levels for RTS.
+          iHOT-33 >=70 = acceptable function. HOS-Sport >=74% = RTS threshold. TSK-11 <=17 = acceptable fear levels for RTS.
         </div>
         <R3>
           <div>
-            <Field label="iHOT-33" unit="/ 100" value={d.iHOT} onChange={v=>sd("iHOT",v)} placeholder="0–100" fieldKey="iHOT"/>
+            <Field label="iHOT-33" unit="/ 100" value={d.iHOT} onChange={v=>sd("iHOT",v)} placeholder="0-100" fieldKey="iHOT"/>
             {hasVal(d.iHOT)&&(
               <div style={{ marginTop:6,display:"flex",alignItems:"center",gap:8 }}>
                 <div style={{ fontSize:20,fontWeight:900,fontFamily:"monospace",color:parseFloat(d.iHOT)>=70?LIME:parseFloat(d.iHOT)>=50?GOLD:RED_BAD }}>{d.iHOT}</div>
                 <div style={{ fontSize:11,fontWeight:700,color:parseFloat(d.iHOT)>=70?LIME:parseFloat(d.iHOT)>=50?GOLD:RED_BAD }}>
-                  {parseFloat(d.iHOT)>=70?"✓ Acceptable function":parseFloat(d.iHOT)>=50?"Moderate dysfunction":"Significant dysfunction"}
+                  {parseFloat(d.iHOT)>=70?"[PASS] Acceptable function":parseFloat(d.iHOT)>=50?"Moderate dysfunction":"Significant dysfunction"}
                 </div>
               </div>
             )}
           </div>
           <div>
-            <Field label="HOS-Sport" unit="%" value={d.hosSport} onChange={v=>sd("hosSport",v)} placeholder="0–100" fieldKey="hosSport"/>
+            <Field label="HOS-Sport" unit="%" value={d.hosSport} onChange={v=>sd("hosSport",v)} placeholder="0-100" fieldKey="hosSport"/>
             {hasVal(d.hosSport)&&(
               <div style={{ marginTop:6,display:"flex",alignItems:"center",gap:8 }}>
                 <div style={{ fontSize:20,fontWeight:900,fontFamily:"monospace",color:parseFloat(d.hosSport)>=74?LIME:parseFloat(d.hosSport)>=60?GOLD:RED_BAD }}>{d.hosSport}</div>
                 <div style={{ fontSize:11,fontWeight:700,color:parseFloat(d.hosSport)>=74?LIME:parseFloat(d.hosSport)>=60?GOLD:RED_BAD }}>
-                  {parseFloat(d.hosSport)>=74?"✓ Meets RTS threshold":parseFloat(d.hosSport)>=60?"Approaching threshold":"Below threshold"}
+                  {parseFloat(d.hosSport)>=74?"[PASS] Meets RTS threshold":parseFloat(d.hosSport)>=60?"Approaching threshold":"Below threshold"}
                 </div>
               </div>
             )}
           </div>
           <div>
-            <Field label="Tampa Scale (TSK-11)" unit="score" value={d.tampa} onChange={v=>sd("tampa",v)} placeholder="11–44" fieldKey="tampa"/>
+            <Field label="Tampa Scale (TSK-11)" unit="score" value={d.tampa} onChange={v=>sd("tampa",v)} placeholder="11-44" fieldKey="tampa"/>
             {hasVal(d.tampa)&&(
               <div style={{ marginTop:6,display:"flex",alignItems:"center",gap:8 }}>
                 <div style={{ fontSize:20,fontWeight:900,fontFamily:"monospace",color:parseFloat(d.tampa)<=17?LIME:parseFloat(d.tampa)<=22?GOLD:RED_BAD }}>{d.tampa}</div>
                 <div style={{ fontSize:11,fontWeight:700,color:parseFloat(d.tampa)<=17?LIME:parseFloat(d.tampa)<=22?GOLD:RED_BAD }}>
-                  {parseFloat(d.tampa)<=17?"✓ Acceptable fear levels":parseFloat(d.tampa)<=22?"Mild kinesiophobia":"Elevated kinesiophobia"}
+                  {parseFloat(d.tampa)<=17?"[PASS] Acceptable fear levels":parseFloat(d.tampa)<=22?"Mild kinesiophobia":"Elevated kinesiophobia"}
                 </div>
               </div>
             )}
@@ -884,16 +862,15 @@ function Tab1({ data:d, setData:setD }) {
         </R3>
       </Card>
 
-      {/* SOAP Generate */}
       <button onClick={generateNote} style={{ width:"100%",padding:16,borderRadius:12,fontSize:13,fontWeight:900,letterSpacing:"0.15em",textTransform:"uppercase",cursor:"pointer",background:`linear-gradient(135deg,${LIME},${LIME_DIM})`,color:BLACK,border:"none",boxShadow:`0 8px 32px ${LIME}44`,marginBottom:20 }}>
-        ⬇ Generate SOAP Note — Objective Section
+        Generate SOAP Note — Objective Section
       </button>
       {d.noteText&&(
         <div style={{ borderRadius:12,overflow:"hidden",border:`1px solid ${LIME}44`,marginBottom:40 }}>
           <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 20px",background:LIME+"14",borderBottom:`1px solid ${LIME}33` }}>
             <span style={{ fontSize:11,fontWeight:800,color:LIME,letterSpacing:"0.15em",textTransform:"uppercase" }}>SOAP Note — Objective Section</span>
             <button onClick={copyNote} style={{ padding:"8px 20px",borderRadius:8,fontSize:11,fontWeight:800,cursor:"pointer",background:noteCopied?"#15803d":LIME,color:BLACK,border:"none" }}>
-              {noteCopied?"✓ Copied!":"Copy to Clipboard"}
+              {noteCopied?"Copied!":"Copy to Clipboard"}
             </button>
           </div>
           <pre style={{ padding:20,background:"#0a0a0a",color:"#d4faa6",fontSize:12,fontFamily:"monospace",lineHeight:1.8,whiteSpace:"pre-wrap",margin:0,maxHeight:500,overflowY:"auto",WebkitOverflowScrolling:"touch" }}>{d.noteText}</pre>
@@ -1003,7 +980,7 @@ function Tab2({ currentData:d, sessions, setSessions, onAddSession }) {
 
   const delta=(cur,prev,higher)=>{ if(cur==null||prev==null||cur===""||prev==="") return null; const c=parseFloat(cur),p=parseFloat(prev); if(isNaN(c)||isNaN(p)) return null; const diff=(c-p).toFixed(1); const dir=c>p?"up":c<p?"down":"flat"; return{diff,dir}; };
   const deltaColor=dir=>dir==="up"?LIME:dir==="down"?RED_BAD:MUTED;
-  const deltaArrow=dir=>dir==="up"?"↑":dir==="down"?"↓":"→";
+  const deltaArrow=dir=>dir==="up"?"^":dir==="down"?"v":"-";
 
   const getColor=(row,val)=>{ if(val==null||val==="") return WHITE; const n=parseFloat(val); if(isNaN(n)) return WHITE; if(["abdLSI","addLSI","erLSI","irLSI","dynamoAvgLSI","hopSingle","hopTriple","hopCross","hopTimed"].includes(row.key)) return lsiColor(n); if(["imtpPFAsym","imtpTPFAsym","cmjEccAsym","cmjConcAsym","cmjCoV","slForceAsym","slTTSAsym"].includes(row.key)) return asymColor(n); return WHITE; };
 
@@ -1019,7 +996,7 @@ function Tab2({ currentData:d, sessions, setSessions, onAddSession }) {
           {sessions.map((s,i)=>(
             <div key={i} style={{ display:"flex",alignItems:"center",gap:6,padding:"5px 10px",borderRadius:6,background:"#1a1a1a",border:`1px solid ${BORDER}` }}>
               <span style={{ fontSize:10,fontWeight:700,color:"#aaa" }}>{s.label}</span>
-              <button onClick={()=>setSessions(prev=>prev.filter((_,idx)=>idx!==i))} style={{ background:"none",border:"none",color:MUTED,cursor:"pointer",fontSize:12,lineHeight:1,padding:0 }}>×</button>
+              <button onClick={()=>setSessions(prev=>prev.filter((_,idx)=>idx!==i))} style={{ background:"none",border:"none",color:MUTED,cursor:"pointer",fontSize:12,lineHeight:1,padding:0 }}>x</button>
             </div>
           ))}
         </div>
@@ -1033,7 +1010,6 @@ function Tab2({ currentData:d, sessions, setSessions, onAddSession }) {
         </div>
         <div style={{ overflowX:"auto",WebkitOverflowScrolling:"touch" }}>
           <div style={{ minWidth:totalW }}>
-            {/* Headers */}
             <div style={{ display:"flex",borderBottom:`1px solid ${BORDER}`,background:"#141414" }}>
               <div style={{ width:labelW,flexShrink:0,padding:"10px 16px",fontSize:10,fontWeight:800,color:MUTED,textTransform:"uppercase",letterSpacing:"0.1em" }}>Measure</div>
               {allCols.map((col,ci)=>(
@@ -1044,7 +1020,6 @@ function Tab2({ currentData:d, sessions, setSessions, onAddSession }) {
               ))}
               {hasSessions&&<div style={{ width:60,flexShrink:0,padding:"10px 8px",fontSize:10,fontWeight:800,color:MUTED,textAlign:"center",textTransform:"uppercase" }}>Trend</div>}
             </div>
-            {/* Rows by group */}
             {groups.map(grp=>{
               const grpRows=metricRows.filter(r=>r.group===grp.key);
               const hasAny=grpRows.some(r=>allCols.some(c=>c.metrics?.[r.key]!=null&&c.metrics?.[r.key]!==""));
@@ -1121,7 +1096,7 @@ function Tab3({ currentData:d, setData }) {
           <textarea style={{...inp,minHeight:80,resize:"vertical",lineHeight:1.6}} placeholder="Enter your clinical impression and RTS recommendation here..." value={d.impression} onChange={e=>sd("impression",e.target.value)}/>
         </div>
         <button onClick={generateLetter} style={{ width:"100%",padding:14,borderRadius:10,fontSize:13,fontWeight:900,letterSpacing:"0.12em",textTransform:"uppercase",cursor:"pointer",background:`linear-gradient(135deg,${LIME},${LIME_DIM})`,color:BLACK,border:"none",boxShadow:`0 8px 32px ${LIME}44` }}>
-          ⬇ Generate Physician Letter
+          Generate Physician Letter
         </button>
       </Card>
 
@@ -1130,7 +1105,7 @@ function Tab3({ currentData:d, setData }) {
           <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 20px",background:LIME+"14",borderBottom:`1px solid ${LIME}33` }}>
             <span style={{ fontSize:11,fontWeight:800,color:LIME,letterSpacing:"0.15em",textTransform:"uppercase" }}>Physician Letter</span>
             <button onClick={copyLetter} style={{ padding:"8px 20px",borderRadius:8,fontSize:11,fontWeight:800,cursor:"pointer",background:letterCopied?"#15803d":LIME,color:BLACK,border:"none" }}>
-              {letterCopied?"✓ Copied!":"Copy to Clipboard"}
+              {letterCopied?"Copied!":"Copy to Clipboard"}
             </button>
           </div>
           <pre style={{ padding:20,background:"#0a0a0a",color:"#d4faa6",fontSize:12,fontFamily:"monospace",lineHeight:1.8,whiteSpace:"pre-wrap",margin:0,maxHeight:600,overflowY:"auto",WebkitOverflowScrolling:"touch" }}>{letterText}</pre>
@@ -1141,7 +1116,8 @@ function Tab3({ currentData:d, setData }) {
 }
 
 // ─── PDF GENERATION ───────────────────────────────────────────────────────────
-const sanitizePdf=s=>String(s||"").replace(/[^\x20-\x7E]/g,"").slice(0,200);
+// NOTE: sanitizePdf strips non-ASCII. All PDF label strings use ASCII-only text.
+const sanitizePdf = s => String(s||"").replace(/[^\x20-\x7E]/g,"").slice(0,200);
 
 async function generateSessionPDF(data, mode="download") {
   const { PDFDocument, rgb, StandardFonts } = await getPdfLib();
@@ -1151,34 +1127,49 @@ async function generateSessionPDF(data, mode="download") {
   const inv=data.patient.involvedSide, invR=inv==="Right", uninv=invR?"Left":"Right";
   const dyn=data.dynamo||{}, imt=data.imtp||{}, cmj=data.cmj||{}, slh=data.slLandHold||{};
 
-  // Colors
   const LIME_R=rgb(0.722,1.0,0.341), BLACK_R=rgb(0.14,0.14,0.14), GRAY=rgb(0.55,0.55,0.55);
   const LGRAY=rgb(0.72,0.72,0.72), BORDER_R=rgb(0.18,0.18,0.18), BGRAY=rgb(0.09,0.09,0.09);
   const GOLD_R=rgb(0.98,0.75,0.14), RED_R=rgb(0.97,0.44,0.44);
 
-  const lsiStatus=v=>{ const n=parseFloat(v); if(isNaN(n)) return null; if(n>=90) return{color:LIME_R,bg:rgb(0.07,0.12,0.03),txt:LIME_R,label:"✓  PASS"}; if(n>=80) return{color:GOLD_R,bg:rgb(0.12,0.1,0.02),txt:GOLD_R,label:"⚠  BORDERLINE"}; return{color:RED_R,bg:rgb(0.12,0.04,0.04),txt:RED_R,label:"✗  FAIL"}; };
-  const asymStatus=v=>{ const n=parseFloat(v); if(isNaN(n)) return null; if(n<=10) return{color:LIME_R,bg:rgb(0.07,0.12,0.03),txt:LIME_R,label:"✓  PASS"}; if(n<=15) return{color:GOLD_R,bg:rgb(0.12,0.1,0.02),txt:GOLD_R,label:"⚠  BORDERLINE"}; return{color:RED_R,bg:rgb(0.12,0.04,0.04),txt:RED_R,label:"✗  FAIL"}; };
+  // ── ASCII-safe status helpers ──
+  const lsiStatus = v => {
+    const n = parseFloat(v);
+    if(isNaN(n)) return null;
+    if(n>=90) return { color:LIME_R, bg:rgb(0.07,0.12,0.03), txt:LIME_R, label:"PASS" };
+    if(n>=80) return { color:GOLD_R, bg:rgb(0.12,0.1,0.02),  txt:GOLD_R, label:"BORDERLINE" };
+    return       { color:RED_R,  bg:rgb(0.12,0.04,0.04), txt:RED_R,  label:"FAIL" };
+  };
+  const asymStatus = v => {
+    const n = parseFloat(v);
+    if(isNaN(n)) return null;
+    if(n<=10) return { color:LIME_R, bg:rgb(0.07,0.12,0.03), txt:LIME_R, label:"PASS" };
+    if(n<=15) return { color:GOLD_R, bg:rgb(0.12,0.1,0.02),  txt:GOLD_R, label:"BORDERLINE" };
+    return      { color:RED_R,  bg:rgb(0.12,0.04,0.04), txt:RED_R,  label:"FAIL" };
+  };
 
   let pageCount=0; let page, y;
   const L=36, R_edge=576, CW=R_edge-L, width=612, height=792;
 
   const addNewPage=()=>{
     page=doc.addPage([width,height]); pageCount++;
-    // Header
     page.drawRectangle({x:0,y:height-36,width,height:36,color:rgb(0.07,0.07,0.07)});
     page.drawRectangle({x:0,y:height-36,width,height:2,color:LIME_R});
     page.drawText("TRM",{x:L,y:height-24,size:14,font:fontBold,color:LIME_R});
     page.drawText(sanitizePdf("Hip Testing & Outcome Measures"),{x:L+35,y:height-22,size:8.5,font:fontBold,color:LGRAY});
-    const ptCont=`${data.patient.date||""}${data.patient.weeksPostOp?"  •  Wk "+data.patient.weeksPostOp:""}${data.patient.involvedSide?"  •  "+data.patient.involvedSide+" side":""}`;
+    const ptCont=`${data.patient.date||""}${data.patient.weeksPostOp?"  |  Wk "+data.patient.weeksPostOp:""}${data.patient.involvedSide?"  |  "+data.patient.involvedSide+" side":""}`;
     if(ptCont.trim()) page.drawText(sanitizePdf(ptCont.trim()),{x:R_edge-font.widthOfTextAtSize(ptCont.trim(),7),y:height-22,size:7,font,color:GRAY});
     y=height-52;
   };
 
   addNewPage();
 
-  // Clinical snapshot
-  const dynLSIs_p={ abd:invR?calcLSI(dyn.abdPFR,dyn.abdPFL):calcLSI(dyn.abdPFL,dyn.abdPFR), add:invR?calcLSI(dyn.addPFR,dyn.addPFL):calcLSI(dyn.addPFL,dyn.addPFR) };
-  const allLSIVals=[dynLSIs_p.abd,dynLSIs_p.add,...[invR?calcLSI(dyn.erPFR,dyn.erPFL):calcLSI(dyn.erPFL,dyn.erPFR),invR?calcLSI(dyn.irPFR,dyn.irPFL):calcLSI(dyn.irPFL,dyn.irPFR)]].filter(v=>v!==null);
+  const dynLSIs_p={
+    abd:invR?calcLSI(dyn.abdPFR,dyn.abdPFL):calcLSI(dyn.abdPFL,dyn.abdPFR),
+    add:invR?calcLSI(dyn.addPFR,dyn.addPFL):calcLSI(dyn.addPFL,dyn.addPFR),
+    er:invR?calcLSI(dyn.erPFR,dyn.erPFL):calcLSI(dyn.erPFL,dyn.erPFR),
+    ir:invR?calcLSI(dyn.irPFR,dyn.irPFL):calcLSI(dyn.irPFL,dyn.irPFR),
+  };
+  const allLSIVals=[dynLSIs_p.abd,dynLSIs_p.add,dynLSIs_p.er,dynLSIs_p.ir].filter(v=>v!==null);
   const avgLSI_p=allLSIVals.length>0?(allLSIVals.map(parseFloat).reduce((a,b)=>a+b,0)/allLSIVals.length).toFixed(1):null;
   const imtpPFAsym_p=calcAsym(imt.pfR,imt.pfL);
   const hAvgSI_p=hopAvgIn(data.hops.singleI),hAvgSU_p=hopAvgIn(data.hops.singleU);
@@ -1186,7 +1177,7 @@ async function generateSessionPDF(data, mode="download") {
 
   page.drawRectangle({x:L-4,y:y-1,width:CW+8,height:15,color:rgb(0.11,0.11,0.11)});
   page.drawRectangle({x:L-4,y:y-1,width:3,height:15,color:LIME_R});
-  page.drawText("CLINICAL SNAPSHOT  —  KEY OUTCOME METRICS",{x:L+6,y:y+3,size:7.5,font:fontBold,color:LIME_R});
+  page.drawText("CLINICAL SNAPSHOT  --  KEY OUTCOME METRICS",{x:L+6,y:y+3,size:7.5,font:fontBold,color:LIME_R});
   y-=20;
 
   const snapItems=[];
@@ -1212,43 +1203,58 @@ async function generateSessionPDF(data, mode="download") {
     });
     y-=boxH+10;
   } else {
-    page.drawText("No computed metrics — enter testing data to generate the snapshot.",{x:L,y,size:8,font,color:GRAY});
+    page.drawText("No computed metrics -- enter testing data to generate the snapshot.",{x:L,y,size:8,font,color:GRAY});
     y-=16;
   }
   y-=4;
 
   const col2=L+Math.floor(CW/2)+4;
   const section=title=>{ if(y<140) addNewPage(); y-=4; page.drawRectangle({x:L-4,y:y-3,width:CW+8,height:14,color:rgb(0.11,0.11,0.11)}); page.drawRectangle({x:L-4,y:y-3,width:3,height:14,color:LIME_R}); page.drawText(sanitizePdf(title.toUpperCase()),{x:L+5,y:y,size:7,font:fontBold,color:LGRAY}); y-=17; };
-  const row=(label,value,x2=null,label2=null,value2=null)=>{ if(y<120) addNewPage(); page.drawText(sanitizePdf(label),{x:L,y,size:8.5,font:fontBold,color:BLACK_R}); page.drawText(sanitizePdf(String(value||"—")),{x:L+165,y,size:8.5,font,color:value?BLACK_R:LGRAY}); if(x2&&label2){page.drawText(sanitizePdf(label2),{x:x2,y,size:8.5,font:fontBold,color:BLACK_R}); page.drawText(sanitizePdf(String(value2||"—")),{x:x2+165,y,size:8.5,font,color:value2?BLACK_R:LGRAY});} y-=12; };
-  const lsiRow=(label,val,statusFn=lsiStatus,unit="%")=>{ if(y<120) addNewPage(); const st=statusFn?statusFn(val):null; page.drawText(sanitizePdf(label),{x:L,y,size:8.5,font:fontBold,color:BLACK_R}); if(val!==null&&val!==undefined){const valStr=`${val}${unit}`; page.drawText(sanitizePdf(valStr),{x:L+165,y,size:8.5,font:fontBold,color:st?st.color:GRAY}); if(st){const chipX=L+165+fontBold.widthOfTextAtSize(valStr,8.5)+8; const chipW=fontBold.widthOfTextAtSize(st.label,5.8)+8; page.drawRectangle({x:chipX,y:y-2,width:chipW,height:11,color:st.bg}); page.drawRectangle({x:chipX,y:y-2,width:chipW,height:1.5,color:st.color}); page.drawText(sanitizePdf(st.label),{x:chipX+4,y:y+1,size:5.8,font:fontBold,color:st.txt});}}else{page.drawText("—",{x:L+165,y,size:8.5,font,color:LGRAY});} y-=12; };
+  const row=(label,value,x2=null,label2=null,value2=null)=>{ if(y<120) addNewPage(); page.drawText(sanitizePdf(label),{x:L,y,size:8.5,font:fontBold,color:BLACK_R}); page.drawText(sanitizePdf(String(value||"--")),{x:L+165,y,size:8.5,font,color:value?BLACK_R:LGRAY}); if(x2&&label2){page.drawText(sanitizePdf(label2),{x:x2,y,size:8.5,font:fontBold,color:BLACK_R}); page.drawText(sanitizePdf(String(value2||"--")),{x:x2+165,y,size:8.5,font,color:value2?BLACK_R:LGRAY});} y-=12; };
+  const lsiRow=(label,val,statusFn=lsiStatus,unit="%")=>{
+    if(y<120) addNewPage();
+    const st=statusFn?statusFn(val):null;
+    page.drawText(sanitizePdf(label),{x:L,y,size:8.5,font:fontBold,color:BLACK_R});
+    if(val!==null&&val!==undefined){
+      const valStr=`${val}${unit}`;
+      page.drawText(sanitizePdf(valStr),{x:L+165,y,size:8.5,font:fontBold,color:st?st.color:GRAY});
+      if(st){
+        const chipX=L+165+fontBold.widthOfTextAtSize(valStr,8.5)+8;
+        const chipW=fontBold.widthOfTextAtSize(st.label,5.8)+8;
+        page.drawRectangle({x:chipX,y:y-2,width:chipW,height:11,color:st.bg});
+        page.drawRectangle({x:chipX,y:y-2,width:chipW,height:1.5,color:st.color});
+        page.drawText(sanitizePdf(st.label),{x:chipX+4,y:y+1,size:5.8,font:fontBold,color:st.txt});
+      }
+    }else{
+      page.drawText("--",{x:L+165,y,size:8.5,font,color:LGRAY});
+    }
+    y-=12;
+  };
   const divider=()=>{ if(y<120){addNewPage();return;} page.drawLine({start:{x:L,y},end:{x:R_edge,y},thickness:0.4,color:BORDER_R}); y-=8; };
 
-  // Session Info
   section("Session Information");
   row("Date:",data.patient.date,col2,"Surgeon:",data.patient.surgeon?`Dr. ${data.patient.surgeon}`:null);
   row("Involved Side:",inv,col2,"Weeks Post-Op:",data.patient.weeksPostOp?`${data.patient.weeksPostOp} wks`:null);
   row("Diagnosis:",data.patient.diagnosis,col2,"Body Weight:",data.bw?`${data.bw} lbs`:null);
   divider();
 
-  // ROM
   const romRows=[["Hip Flexion","hipFlexR","hipFlexL"],["Hip Extension","hipExtR","hipExtL"],["Hip Abduction","hipAbdR","hipAbdL"],["Hip Adduction","hipAddR","hipAddL"],["Hip IR","hipIRR","hipIRL"],["Hip ER","hipERR","hipERL"]];
   const hasROM=romRows.some(([,r,l])=>hasVal(data[r])||hasVal(data[l]));
   if(hasROM) {
     section("Hip Range of Motion");
-    romRows.forEach(([name,rKey,lKey])=>{ if(!hasVal(data[rKey])&&!hasVal(data[lKey])) return; row(`${name} R:`,data[rKey]?`${data[rKey]}°`:null,col2,`${name} L:`,data[lKey]?`${data[lKey]}°`:null); });
+    romRows.forEach(([name,rKey,lKey])=>{ if(!hasVal(data[rKey])&&!hasVal(data[lKey])) return; row(`${name} R:`,data[rKey]?`${data[rKey]} deg`:null,col2,`${name} L:`,data[lKey]?`${data[lKey]} deg`:null); });
     divider();
   }
 
-  // Dynamo
   const dynRows=[["Hip Abduction","abdPFR","abdPFL","abdTPFR","abdTPFL","abd"],["Hip Adduction","addPFR","addPFL","addTPFR","addTPFL","add"],["Hip ER","erPFR","erPFL","erTPFR","erTPFL","er"],["Hip IR","irPFR","irPFL","irTPFR","irTPFL","ir"]];
   const hasDyn=dynRows.some(([,r,l])=>hasVal(dyn[r])||hasVal(dyn[l]));
   if(hasDyn) {
-    section("Isometric Hip Strength — VALD Dynamo");
-    dynRows.forEach(([name,pfR,pfL,tpfR,tpfL,lsiKey])=>{
+    section("Isometric Hip Strength -- VALD Dynamo");
+    dynRows.forEach(([name,pfR,pfL,tpfR,tpfL])=>{
       if(!hasVal(dyn[pfR])&&!hasVal(dyn[pfL])) return;
       const lsi=invR?calcLSI(dyn[pfR],dyn[pfL]):calcLSI(dyn[pfL],dyn[pfR]);
       const tpfAsym=calcAsym(dyn[tpfR],dyn[tpfL]);
-      row(`${name} — L:`,dyn[pfL]?`${dyn[pfL]} N`:null,col2,`R:`,dyn[pfR]?`${dyn[pfR]} N`:null);
+      row(`${name} -- L:`,dyn[pfL]?`${dyn[pfL]} N`:null,col2,`R:`,dyn[pfR]?`${dyn[pfR]} N`:null);
       if(lsi) lsiRow(`  ${name} LSI:`,lsi);
       if(tpfAsym) lsiRow(`  ${name} TPF Asym:`,tpfAsym,asymStatus,"%");
     });
@@ -1256,18 +1262,19 @@ async function generateSessionPDF(data, mode="download") {
     divider();
   }
 
-  // IMTP
   if(hasVal(imt.pfR)||hasVal(imt.pfL)) {
-    section("Isometric Mid-Thigh Pull — VALD ForceDecks");
+    section("Isometric Mid-Thigh Pull -- VALD ForceDecks");
     row("Peak Force L:",imt.pfL?`${imt.pfL} N`:null,col2,"Peak Force R:",imt.pfR?`${imt.pfR} N`:null);
     if(imtpPFAsym_p) lsiRow("PF Asymmetry:",imtpPFAsym_p,asymStatus);
-    if(hasVal(imt.tpfR)||hasVal(imt.tpfL)) { row("TPF L:",imt.tpfL?`${imt.tpfL} ms`:null,col2,"TPF R:",imt.tpfR?`${imt.tpfR} ms`:null); const tpfA=calcAsym(imt.tpfR,imt.tpfL); if(tpfA) lsiRow("TPF Asymmetry:",tpfA,asymStatus); }
+    if(hasVal(imt.tpfR)||hasVal(imt.tpfL)) {
+      row("TPF L:",imt.tpfL?`${imt.tpfL} ms`:null,col2,"TPF R:",imt.tpfR?`${imt.tpfR} ms`:null);
+      const tpfA=calcAsym(imt.tpfR,imt.tpfL); if(tpfA) lsiRow("TPF Asymmetry:",tpfA,asymStatus);
+    }
     divider();
   }
 
-  // CMJ
   if(hasVal(cmj.jumpHeight)||hasVal(cmj.eccAsym)||hasVal(cmj.concAsym)||hasVal(cmj.cov)) {
-    section("Countermovement Jump — VALD ForceDecks");
+    section("Countermovement Jump -- VALD ForceDecks");
     if(hasVal(cmj.jumpHeight)) row("Jump Height:",`${cmj.jumpHeight} cm`,col2,"Mod RSI:",cmj.modRSI||null);
     if(hasVal(cmj.eccAsym)) lsiRow("Ecc Impulse Asymmetry:",cmj.eccAsym,asymStatus);
     if(hasVal(cmj.concAsym)) lsiRow("Conc Impulse Asymmetry:",cmj.concAsym,asymStatus);
@@ -1275,9 +1282,8 @@ async function generateSessionPDF(data, mode="download") {
     divider();
   }
 
-  // SLLAH
   if(hasVal(slh.rPeakForce)||hasVal(slh.lPeakForce)||hasVal(slh.rTTS)||hasVal(slh.lTTS)) {
-    section("Single Leg Land and Hold — VALD ForceDecks");
+    section("Single Leg Land and Hold -- VALD ForceDecks");
     if(hasVal(slh.rPeakForce)||hasVal(slh.lPeakForce)) {
       row("Peak Force L:",slh.lPeakForce?`${slh.lPeakForce} N`:null,col2,"Peak Force R:",slh.rPeakForce?`${slh.rPeakForce} N`:null);
       const fa=calcAsym(slh.rPeakForce,slh.lPeakForce); if(fa) lsiRow("Force Asymmetry:",fa,asymStatus);
@@ -1289,12 +1295,11 @@ async function generateSessionPDF(data, mode="download") {
     divider();
   }
 
-  // Hops
   const hopTests_p=[["Single Hop",hopAvgIn(data.hops.singleI),hopAvgIn(data.hops.singleU),"in"],["Triple Hop",hopAvgIn(data.hops.tripleI),hopAvgIn(data.hops.tripleU),"in"],["Crossover Hop",hopAvgIn(data.hops.crossI),hopAvgIn(data.hops.crossU),"in"],["6m Timed Hop",hopAvgTimed(data.hops.timedI),hopAvgTimed(data.hops.timedU),"sec"]].filter(([,i,u])=>hasVal(i)||hasVal(u));
   if(hopTests_p.length>0) {
     section("Hop Testing");
     hopTests_p.forEach(([name,i,u,unit])=>{
-      row(`${name} — ${inv}:`,i?`${i} ${unit}`:null,col2,`${uninv}:`,u?`${u} ${unit}`:null);
+      row(`${name} -- ${inv}:`,i?`${i} ${unit}`:null,col2,`${uninv}:`,u?`${u} ${unit}`:null);
       const l=unit==="sec"?calcTimedLSI(i,u):calcLSI(i,u); if(l) lsiRow(`  ${name} LSI:`,l);
     });
     divider();
@@ -1302,33 +1307,31 @@ async function generateSessionPDF(data, mode="download") {
 
   if(hasVal(data.agilityTime)) {
     section("Agility Testing");
-    row("Pro Agility (5-10-5) — Best Time:",`${data.agilityTime} sec`);
+    row("Pro Agility (5-10-5) -- Best Time:",`${data.agilityTime} sec`);
     divider();
   }
 
   const hasProb=hasVal(data.iHOT)||hasVal(data.hosSport)||hasVal(data.tampa);
   if(hasProb) {
     section("Patient-Reported Outcomes");
-    if(hasVal(data.iHOT)) lsiRow("iHOT-33:",data.iHOT,v=>{ const n=parseFloat(v); if(isNaN(n)) return null; if(n>=70) return{color:LIME_R,bg:rgb(0.07,0.12,0.03),txt:LIME_R,label:"✓  PASS (≥70)"}; if(n>=50) return{color:GOLD_R,bg:rgb(0.12,0.1,0.02),txt:GOLD_R,label:"⚠  MODERATE"}; return{color:RED_R,bg:rgb(0.12,0.04,0.04),txt:RED_R,label:"✗  SIGNIFICANT"}; },"/100");
-    if(hasVal(data.hosSport)) lsiRow("HOS-Sport:",data.hosSport,v=>{ const n=parseFloat(v); if(isNaN(n)) return null; if(n>=74) return{color:LIME_R,bg:rgb(0.07,0.12,0.03),txt:LIME_R,label:"✓  RTS THRESHOLD"}; if(n>=60) return{color:GOLD_R,bg:rgb(0.12,0.1,0.02),txt:GOLD_R,label:"⚠  BORDERLINE"}; return{color:RED_R,bg:rgb(0.12,0.04,0.04),txt:RED_R,label:"✗  BELOW THRESHOLD"}; },"%");
-    if(hasVal(data.tampa)) lsiRow("Tampa Scale (TSK-11):",data.tampa,v=>{ const n=parseFloat(v); if(isNaN(n)) return null; if(n<=17) return{color:LIME_R,bg:rgb(0.07,0.12,0.03),txt:LIME_R,label:"✓  ACCEPTABLE"}; if(n<=22) return{color:GOLD_R,bg:rgb(0.12,0.1,0.02),txt:GOLD_R,label:"⚠  MILD KINESIO"}; return{color:RED_R,bg:rgb(0.12,0.04,0.04),txt:RED_R,label:"✗  ELEVATED"}; },"");
+    if(hasVal(data.iHOT)) lsiRow("iHOT-33:",data.iHOT,v=>{ const n=parseFloat(v); if(isNaN(n)) return null; if(n>=70) return{color:LIME_R,bg:rgb(0.07,0.12,0.03),txt:LIME_R,label:"PASS (>=70)"}; if(n>=50) return{color:GOLD_R,bg:rgb(0.12,0.1,0.02),txt:GOLD_R,label:"MODERATE"}; return{color:RED_R,bg:rgb(0.12,0.04,0.04),txt:RED_R,label:"SIGNIFICANT"}; },"/100");
+    if(hasVal(data.hosSport)) lsiRow("HOS-Sport:",data.hosSport,v=>{ const n=parseFloat(v); if(isNaN(n)) return null; if(n>=74) return{color:LIME_R,bg:rgb(0.07,0.12,0.03),txt:LIME_R,label:"RTS THRESHOLD"}; if(n>=60) return{color:GOLD_R,bg:rgb(0.12,0.1,0.02),txt:GOLD_R,label:"BORDERLINE"}; return{color:RED_R,bg:rgb(0.12,0.04,0.04),txt:RED_R,label:"BELOW THRESHOLD"}; },"%");
+    if(hasVal(data.tampa)) lsiRow("Tampa Scale (TSK-11):",data.tampa,v=>{ const n=parseFloat(v); if(isNaN(n)) return null; if(n<=17) return{color:LIME_R,bg:rgb(0.07,0.12,0.03),txt:LIME_R,label:"ACCEPTABLE"}; if(n<=22) return{color:GOLD_R,bg:rgb(0.12,0.1,0.02),txt:GOLD_R,label:"MILD KINESIO"}; return{color:RED_R,bg:rgb(0.12,0.04,0.04),txt:RED_R,label:"ELEVATED"}; },"");
     divider();
   }
 
-  // Footer
   page.drawRectangle({x:0,y:0,width,height:30,color:rgb(0.07,0.07,0.07)});
   page.drawRectangle({x:0,y:26,width,height:1.5,color:LIME_R});
   page.drawText("TRM  |  Hip Testing & Outcome Measures",{x:L,y:8,size:6.5,font,color:GRAY});
   page.drawText(`Page ${pageCount} of ${pageCount}`,{x:R_edge-font.widthOfTextAtSize(`Page ${pageCount} of ${pageCount}`,6.5),y:8,size:6.5,font,color:GRAY});
 
-  // Embed session data into PDF metadata
   const sessionJson=JSON.stringify(data);
   const bytes=new TextEncoder().encode(sessionJson);
   const encoded=btoa(String.fromCharCode(...bytes));
   const PREFIX="TRM_HIP_V1:";
   doc.setSubject(PREFIX+encoded);
   doc.setKeywords([PREFIX+encoded]);
-  doc.setTitle(`TRM Hip Session — ${data.patient.date||new Date().toISOString().slice(0,10)}`);
+  doc.setTitle(`TRM Hip Session -- ${data.patient.date||new Date().toISOString().slice(0,10)}`);
 
   const pdfBytes=await doc.save();
   const filename=`TRM_Hip_${new Date().toISOString().slice(0,10)}.pdf`;
@@ -1432,7 +1435,6 @@ export default function App() {
     {label:"Report",     sub:"Letter / Impression"},
   ];
 
-  // Auto-save
   useEffect(()=>{
     const save=async()=>{
       const val=JSON.stringify(data);
@@ -1443,7 +1445,6 @@ export default function App() {
     return ()=>clearTimeout(t);
   },[data]);
 
-  // Auto-restore
   useEffect(()=>{
     const restore=async()=>{
       let val=null;
@@ -1553,16 +1554,16 @@ export default function App() {
       <div className="trm-main-content" style={{ maxWidth:900,margin:"0 auto",padding:"20px 16px",paddingBottom:100 }}>
         {storageRestored&&(
           <div style={{ marginBottom:20,padding:"12px 18px",borderRadius:10,border:`1px solid ${BLUE}55`,background:BLUE+"12",display:"flex",alignItems:"center",gap:12 }}>
-            <span style={{ fontSize:16 }}>💾</span>
+            <span style={{ fontSize:16 }}>*</span>
             <span style={{ fontSize:12,fontWeight:700,color:BLUE }}>Session auto-restored from your last visit.</span>
-            <button onClick={()=>setStorageRestored(false)} style={{ marginLeft:"auto",background:"none",border:"none",color:MUTED,cursor:"pointer",fontSize:16,lineHeight:1 }}>×</button>
+            <button onClick={()=>setStorageRestored(false)} style={{ marginLeft:"auto",background:"none",border:"none",color:MUTED,cursor:"pointer",fontSize:16,lineHeight:1 }}>x</button>
           </div>
         )}
         {loadMsg&&(
           <div style={{ marginBottom:20,padding:"12px 18px",borderRadius:10,border:`1px solid ${loadMsg.type==="success"?LIME+"55":RED_BAD+"55"}`,background:loadMsg.type==="success"?LIME+"12":RED_BAD+"12",display:"flex",alignItems:"center",gap:12 }}>
-            <span style={{ fontSize:16 }}>{loadMsg.type==="success"?"✓":"⚠"}</span>
+            <span style={{ fontSize:16 }}>{loadMsg.type==="success"?"OK":"!"}</span>
             <span style={{ fontSize:12,fontWeight:700,color:loadMsg.type==="success"?LIME:RED_BAD }}>{loadMsg.text}</span>
-            <button onClick={()=>setLoadMsg(null)} style={{ marginLeft:"auto",background:"none",border:"none",color:MUTED,cursor:"pointer",fontSize:16,lineHeight:1 }}>×</button>
+            <button onClick={()=>setLoadMsg(null)} style={{ marginLeft:"auto",background:"none",border:"none",color:MUTED,cursor:"pointer",fontSize:16,lineHeight:1 }}>x</button>
           </div>
         )}
         {activeTab===0&&<Tab1 data={data} setData={setData}/>}
@@ -1584,9 +1585,9 @@ export default function App() {
           <button onClick={()=>fileInputRef.current.click()} style={{ padding:"7px 9px",background:"rgba(255,255,255,0.03)",color:"#666",border:"none",cursor:"pointer",fontSize:9,fontWeight:800,letterSpacing:"0.07em",textTransform:"uppercase" }}>Load</button>
         </div>
         <div style={{ display:"flex",alignItems:"stretch",border:`1px solid ${LIME}28`,borderRadius:7,overflow:"hidden",boxShadow:`0 1px 6px ${LIME}0a`,opacity:saving?0.5:1 }}>
-          <button onClick={handleSavePDF} disabled={saving} style={{ padding:"7px 11px",background:LIME+"0c",color:LIME+"cc",border:"none",cursor:saving?"default":"pointer",fontSize:9,fontWeight:800,letterSpacing:"0.07em",textTransform:"uppercase" }}>{saving?"Saving…":"Save PDF"}</button>
+          <button onClick={handleSavePDF} disabled={saving} style={{ padding:"7px 11px",background:LIME+"0c",color:LIME+"cc",border:"none",cursor:saving?"default":"pointer",fontSize:9,fontWeight:800,letterSpacing:"0.07em",textTransform:"uppercase" }}>{saving?"Saving...":"Save PDF"}</button>
           <div style={{ width:1,background:LIME+"22",flexShrink:0 }}/>
-          <button onClick={handleAirDrop} disabled={saving} title="Share / AirDrop" style={{ padding:"7px 9px",background:LIME+"0c",color:LIME+"cc",border:"none",cursor:saving?"default":"pointer",fontSize:12,lineHeight:1,display:"flex",alignItems:"center" }}>⬆</button>
+          <button onClick={handleAirDrop} disabled={saving} title="Share / AirDrop" style={{ padding:"7px 9px",background:LIME+"0c",color:LIME+"cc",border:"none",cursor:saving?"default":"pointer",fontSize:12,lineHeight:1,display:"flex",alignItems:"center" }}>Share</button>
         </div>
       </div>
     </div>
