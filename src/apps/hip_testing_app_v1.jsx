@@ -564,7 +564,7 @@ function Tab1({ data:d, setData:setD }) {
 
       <Card title="Isometric Hip Strength — VALD Dynamo" id="dynamo" focusable activeCard={activeCard} setActiveCard={setActiveCard}>
         <div style={{ fontSize:11,color:MUTED,marginBottom:14,lineHeight:1.6 }}>
-          Enter peak force (N) and time to peak force (ms) per side. LSI = involved/uninvolved × 100. Pass: LSI >=90%, TPF asymmetry &lt;10%, Average LSI &gt;90%.
+          Enter peak force (N) and time to peak force (ms) per side. LSI = involved/uninvolved x 100. Pass: LSI &gt;=90%, TPF asymmetry &lt;10%, Average LSI &gt;90%.
         </div>
         <DynamoSection label="Hip Abduction" pfR={dyn.abdPFR} pfL={dyn.abdPFL} tpfR={dyn.abdTPFR} tpfL={dyn.abdTPFL} lsi={dynLSIs.abd} tpfAsym={dynTPFAsyms.abd} pfRKey="abdPFR" pfLKey="abdPFL" tpfRKey="abdTPFR" tpfLKey="abdTPFL"/>
         <DynamoSection label="Hip Adduction" pfR={dyn.addPFR} pfL={dyn.addPFL} tpfR={dyn.addTPFR} tpfL={dyn.addTPFL} lsi={dynLSIs.add} tpfAsym={dynTPFAsyms.add} pfRKey="addPFR" pfLKey="addPFL" tpfRKey="addTPFR" tpfLKey="addTPFL"/>
@@ -705,7 +705,7 @@ function Tab1({ data:d, setData:setD }) {
 
       <Card title="Hop Testing" id="hops" focusable activeCard={activeCard} setActiveCard={setActiveCard}>
         <div style={{ fontSize:11,color:MUTED,marginBottom:14,lineHeight:1.6 }}>
-          Enter up to 3 trials per side in feet and inches. Average (inches) used for LSI. Pass: LSI >=90%.
+          Enter up to 3 trials per side in feet and inches. Average (inches) used for LSI. Pass: LSI &gt;=90%.
         </div>
         {[
           ["Single Hop","singleI","singleU",hopLSIs.single],
@@ -823,7 +823,7 @@ function Tab1({ data:d, setData:setD }) {
 
       <Card title="Patient-Reported Outcomes" id="pro" focusable activeCard={activeCard} setActiveCard={setActiveCard}>
         <div style={{ fontSize:11,color:MUTED,marginBottom:14,lineHeight:1.6 }}>
-          iHOT-33 >=70 = acceptable function. HOS-Sport >=74% = RTS threshold. TSK-11 <=17 = acceptable fear levels for RTS.
+          iHOT-33 &gt;=70 = acceptable function. HOS-Sport &gt;=74% = RTS threshold. TSK-11 &lt;=17 = acceptable fear levels for RTS.
         </div>
         <R3>
           <div>
