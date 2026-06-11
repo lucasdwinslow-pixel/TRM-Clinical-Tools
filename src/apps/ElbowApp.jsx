@@ -19,8 +19,8 @@ export default function ElbowApp() {
           <div style={{ display: "flex", alignItems: "center",
             justifyContent: "space-between", height: 58 }}>
             <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
-              <span style={{ fontFamily: "'Arial Black',Impact,sans-serif",
-                fontSize: 28, fontWeight: 900, color: WHITE,
+              <span style={{ fontFamily: "'Barlow Condensed', 'Arial Black', Impact, sans-serif",
+                fontStyle: "italic", fontSize: 30, fontWeight: 900, color: WHITE,
                 letterSpacing: "-1px" }}>TRM</span>
               <span style={{ color: BORDER, fontSize: 18 }}>|</span>
               <span style={{ fontSize: 11, fontWeight: 700, color: "#777",
