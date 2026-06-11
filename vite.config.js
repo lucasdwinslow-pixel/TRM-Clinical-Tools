@@ -14,6 +14,7 @@ export default defineConfig({
           "vendor-pdf":   ["pdf-lib", "jspdf"],
           "acl-app":      ["./src/apps/ACLApp.jsx"],
           "shoulder-app": ["./src/apps/ShoulderApp.jsx"],
+          "elbow-app":    ["./src/apps/ElbowApp.jsx"],
           "apre-app":     ["./src/apps/APREApp.jsx"],
         },
       },
