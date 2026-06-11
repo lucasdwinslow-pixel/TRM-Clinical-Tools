@@ -16,6 +16,7 @@ const categories = [
     label: "Upper Extremity",
     tools: [
       { id: "shoulder", name: "Shoulder Testing",  href: "/shoulder" },
+      { id: "elbow",    name: "Elbow Testing",    href: "/elbow" },
     ],
   },
   {
