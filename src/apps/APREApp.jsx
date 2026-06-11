@@ -373,6 +373,7 @@ function addCustomRow(wk){
   d.innerHTML=makeCustomRowHTML(wk,'','');
   c.appendChild(d.firstChild);
 }
+if(typeof window!=='undefined')window.addCustomRow=addCustomRow;
 function renderExerciseLists(){
   ['w2','w3'].forEach(function(wk){
     var pp=PROTO[proto];
