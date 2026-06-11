@@ -2,10 +2,10 @@ import { Suspense, lazy } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Home from "./pages/Home.jsx";
 
-const ACLApp      = lazy(() => import("./apps/ACLApp.jsx"));
+const ACLApp = lazy(() => import("./apps/ACLApp.jsx"));
 const ShoulderApp = lazy(() => import("./apps/ShoulderApp.jsx"));
-const APREApp     = lazy(() => import("./apps/APREApp.jsx"));
-const HipApp      = lazy(() => import("./apps/hip_testing_app_v1.jsx"));
+const APREApp = lazy(() => import("./apps/APREApp.jsx"));
+const HipApp = lazy(() => import("./apps/hip_testing_app_v1.jsx"));
 const ElbowApp = lazy(() => import("./apps/ElbowApp.jsx"));
 
 // Full-bleed black wrapper — prevents any white showing around app edges
@@ -59,7 +59,7 @@ function AppLoader({ name }) {
         <style>{`
           @keyframes slide {
             from { transform: translateX(-100%); }
-            to   { transform: translateX(350%); }
+            to { transform: translateX(350%); }
           }
         `}</style>
       </div>
@@ -83,10 +83,11 @@ function BackButton() {
         border: "2px solid #2a2a2a",
         color: "#aaff00",
         padding: "8px 14px",
-        fontFamily: "sans-serif",
-        fontWeight: 700,
-        fontSize: 12,
-        letterSpacing: 3,
+        fontFamily: "'Barlow Condensed', 'Arial Black', Impact, sans-serif",
+        fontStyle: "italic",
+        fontWeight: 900,
+        fontSize: 17,
+        letterSpacing: "-1px",
         textTransform: "uppercase",
         textDecoration: "none",
         transition: "border-color 0.15s",
