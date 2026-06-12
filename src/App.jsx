@@ -7,6 +7,7 @@ const ShoulderApp = lazy(() => import("./apps/ShoulderApp.jsx"));
 const APREApp = lazy(() => import("./apps/APREApp.jsx"));
 const HipApp = lazy(() => import("./apps/hip_testing_app_v1.jsx"));
 const ElbowApp = lazy(() => import("./apps/ElbowApp.jsx"));
+const ConcussionApp = lazy(() => import("./apps/ConcussionApp.jsx"));
 
 // Full-bleed black wrapper — prevents any white showing around app edges
 const AppShell = ({ children }) => (
@@ -139,6 +140,16 @@ export default function App() {
             <BackButton />
             <Suspense fallback={<AppLoader name="Elbow Testing" />}>
               <ElbowApp />
+            </Suspense>
+          </AppShell>
+        } />
+
+        {/* Concussion Testing App */}
+        <Route path="/concussion" element={
+          <AppShell>
+            <BackButton />
+            <Suspense fallback={<AppLoader name="Concussion Testing" />}>
+              <ConcussionApp />
             </Suspense>
           </AppShell>
         } />
