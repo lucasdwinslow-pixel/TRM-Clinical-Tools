@@ -11,11 +11,12 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          "vendor-pdf":   ["pdf-lib", "jspdf"],
-          "acl-app":      ["./src/apps/ACLApp.jsx"],
+          "vendor-pdf": ["pdf-lib", "jspdf"],
+          "acl-app": ["./src/apps/ACLApp.jsx"],
           "shoulder-app": ["./src/apps/ShoulderApp.jsx"],
-          "elbow-app":    ["./src/apps/ElbowApp.jsx"],
-          "apre-app":     ["./src/apps/APREApp.jsx"],
+          "elbow-app": ["./src/apps/ElbowApp.jsx"],
+          "apre-app": ["./src/apps/APREApp.jsx"],
+          "concussion-app": ["./src/apps/ConcussionApp.jsx"],
         },
       },
     },
