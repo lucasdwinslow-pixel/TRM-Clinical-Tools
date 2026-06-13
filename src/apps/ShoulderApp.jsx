@@ -16,11 +16,11 @@ const getPdfLib = () => _pdfLibPromise;
 
 const LIME     = "#b8ff57";
 const LIME_DIM = "#8ed43c";
-const BLACK    = "#0a0a0a";
-const DARK     = "#111111";
-const CARD     = "#181818";
-const BORDER   = "#2a2a2a";
-const MUTED    = "#555555";
+const BLACK    = "#0b0f12";
+const DARK     = "#101417";
+const CARD     = "#1c2023";
+const BORDER   = "rgba(255,255,255,0.10)";
+const MUTED    = "rgba(255,255,255,0.4)";
 const WHITE    = "#ffffff";
 const GOLD     = "#fbbf24";
 const RED_BAD  = "#f87171";
