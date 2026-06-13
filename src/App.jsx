@@ -12,7 +12,7 @@ const ConcussionApp = lazy(() => import("./apps/ConcussionApp.jsx"));
 // Full-bleed black wrapper — prevents any white showing around app edges
 const AppShell = ({ children }) => (
   <div style={{
-    background: "#0a0a0a",
+    background: "#0b0f12",
     minHeight: "100dvh",
     width: "100%",
     position: "relative",
@@ -80,7 +80,7 @@ function BackButton() {
         display: "flex",
         alignItems: "center",
         gap: 8,
-        background: "#0a0a0a",
+        background: "#0b0f12",
         border: "2px solid #2a2a2a",
         color: "#aaff00",
         padding: "8px 14px",
