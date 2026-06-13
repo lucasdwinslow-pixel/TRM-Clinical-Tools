@@ -7,5 +7,213 @@ const ShoulderApp = lazy(() => import("./apps/ShoulderApp.jsx"));
 const APREApp = lazy(() => import("./apps/APREApp.jsx"));
 const HipApp = lazy(() => import("./apps/hip_testing_app_v1.jsx"));
 const ElbowApp = lazy(() => import("./apps/ElbowApp.jsx"));
+const ConcussionApp = lazy(() => import("./apps/ConcussionApp.jsx"));
 
-const TRM_LOGO = "data:image/png;base64,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[¯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º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";
+// Full-bleed black wrapper — prevents any white showing around app edges
+const AppShell = ({ children }) => (
+  <div style={{
+    background: "#0a0a0a",
+    minHeight: "100dvh",
+    width: "100%",
+    position: "relative",
+  }}>
+    {children}
+  </div>
+);
+
+function AppLoader({ name }) {
+  return (
+    <AppShell>
+      <div style={{
+        minHeight: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 20,
+        fontFamily: "sans-serif",
+      }}>
+        <div style={{
+          width: 200,
+          height: 3,
+          background: "#1a1a1a",
+          borderRadius: 2,
+          overflow: "hidden",
+        }}>
+          <div style={{
+            height: "100%",
+            width: "40%",
+            background: "#aaff00",
+            borderRadius: 2,
+            animation: "slide 1s ease-in-out infinite alternate",
+          }} />
+        </div>
+        <div style={{
+          fontWeight: 700,
+          fontSize: 11,
+          letterSpacing: 4,
+          color: "#555",
+          textTransform: "uppercase",
+        }}>
+          Loading {name}...
+        </div>
+        <style>{`
+          @keyframes slide {
+            from { transform: translateX(-100%); }
+            to { transform: translateX(350%); }
+          }
+        `}</style>
+      </div>
+    </AppShell>
+  );
+}
+
+function BackButton() {
+  return (
+    <a
+      href="/"
+      style={{
+        position: "fixed",
+        top: 16,
+        left: 16,
+        zIndex: 9999,
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        background: "#0a0a0a",
+        border: "2px solid #2a2a2a",
+        color: "#aaff00",
+        padding: "8px 14px",
+        fontFamily: "'Barlow Condensed', 'Arial Black', Impact, sans-serif",
+        fontStyle: "italic",
+        fontWeight: 900,
+        fontSize: 17,
+        letterSpacing: "-1px",
+        textTransform: "uppercase",
+        textDecoration: "none",
+        transition: "border-color 0.15s",
+        WebkitTapHighlightColor: "transparent",
+      }}
+      onMouseEnter={e => e.currentTarget.style.borderColor = "#aaff00"}
+      onMouseLeave={e => e.currentTarget.style.borderColor = "#2a2a2a"}
+    >
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+        <path d="M8 2L4 6l4 4" stroke="#aaff00" strokeWidth="2"
+          strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+      TRM
+    </a>
+  );
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+
+        {/* Dashboard */}
+        <Route path="/" element={<Home />} />
+
+        {/* ACL Testing App */}
+        <Route path="/acl" element={
+          <AppShell>
+            <BackButton />
+            <Suspense fallback={<AppLoader name="ACL Testing App" />}>
+              <ACLApp />
+            </Suspense>
+          </AppShell>
+        } />
+
+        {/* Shoulder Testing App */}
+        <Route path="/shoulder" element={
+          <AppShell>
+            <BackButton />
+            <Suspense fallback={<AppLoader name="Shoulder Testing App" />}>
+              <ShoulderApp />
+            </Suspense>
+          </AppShell>
+        } />
+
+        {/* Elbow Testing App */}
+        <Route path="/elbow" element={
+          <AppShell>
+            <BackButton />
+            <Suspense fallback={<AppLoader name="Elbow Testing" />}>
+              <ElbowApp />
+            </Suspense>
+          </AppShell>
+        } />
+
+        {/* Concussion Testing App */}
+        <Route path="/concussion" element={
+          <AppShell>
+            <BackButton />
+            <Suspense fallback={<AppLoader name="Concussion Testing" />}>
+              <ConcussionApp />
+            </Suspense>
+          </AppShell>
+        } />
+
+        {/* APRE Calculator */}
+        <Route path="/apre" element={
+          <AppShell>
+            <BackButton />
+            <Suspense fallback={<AppLoader name="APRE Calculator" />}>
+              <APREApp />
+            </Suspense>
+          </AppShell>
+        } />
+
+        {/* Hip Testing App */}
+        <Route path="/hip" element={
+          <AppShell>
+            <BackButton />
+            <Suspense fallback={<AppLoader name="Hip Testing App" />}>
+              <HipApp />
+            </Suspense>
+          </AppShell>
+        } />
+
+        {/* 404 */}
+        <Route path="*" element={
+          <AppShell>
+            <div style={{
+              minHeight: "100vh",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              fontFamily: "sans-serif",
+              gap: 16,
+            }}>
+              <div style={{
+                fontFamily: "'Bebas Neue', sans-serif",
+                fontSize: 80,
+                color: "#aaff00",
+                lineHeight: 1,
+              }}>404</div>
+              <div style={{
+                fontSize: 13,
+                letterSpacing: 4,
+                color: "#555",
+                textTransform: "uppercase",
+              }}>Page not found</div>
+              <a href="/" style={{
+                marginTop: 8,
+                color: "#aaff00",
+                fontSize: 12,
+                letterSpacing: 3,
+                textTransform: "uppercase",
+                textDecoration: "none",
+                fontWeight: 700,
+              }}>
+                ← Back to TRM Tools
+              </a>
+            </div>
+          </AppShell>
+        } />
+
+      </Routes>
+    </BrowserRouter>
+  );
+}
