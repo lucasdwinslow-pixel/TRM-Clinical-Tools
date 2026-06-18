@@ -449,10 +449,11 @@ function buildShoulderNote(d) {
   const pe = d.posteriorEndurance || {};
   if (hasVal(pe.reps) || hasVal(pe.timeInv) || hasVal(pe.timeUninv)) {
     add("POSTERIOR SHOULDER ENDURANCE TEST");
-    addIf(hasVal(pe.reps), `Reps to Fatigue: ${pe.reps}`);
+    addIf(hasVal(pe.reps),      `Reps to Fatigue — ${inv} (Involved): ${pe.reps}`);
+    addIf(hasVal(pe.repsUninv), `Reps to Fatigue — ${uninv} (Uninvolved): ${pe.repsUninv}`);
     if (hasVal(pe.reps)) {
       const r = parseFloat(pe.reps);
-      add(`  Interpretation: ${r >= 20 ? "Good posterior endurance (≥20 reps)" : r >= 12 ? "Moderate — monitor cuff fatigue" : "Reduced posterior endurance"}`);
+      add(`  Interpretation (Involved): ${r >= 20 ? "Good posterior endurance (≥20 reps)" : r >= 12 ? "Moderate — monitor cuff fatigue" : "Reduced posterior endurance"}`);
     }
     addIf(hasVal(pe.timeInv),   `Time Held — ${inv} (Involved): ${pe.timeInv} sec`);
     addIf(hasVal(pe.timeUninv), `Time Held — ${uninv} (Uninvolved): ${pe.timeUninv} sec`);
@@ -550,11 +551,31 @@ function buildShoulderNote(d) {
   return lines.join("\n").trim();
 }
 
+async function embedTRMLogo(doc) {
+  const d = "M541.00,4.00 L495.00,278.50 L546.00,346.50 L561.50,345.50 L593.00,144.50 L650.00,346.50 L697.50,345.50 L785.50,144.50 L786.00,348.50 L863.50,348.50 L859.50,4.00 L776.00,5.00 L685.50,202.00 L623.50,4.00 Z M270.00,4.00 L243.00,348.50 L321.50,347.50 L332.00,212.50 L426.00,348.50 L525.50,348.50 L419.50,207.50 L458.50,185.50 L476.50,166.50 L488.50,145.50 L496.50,115.50 L497.50,84.00 L492.50,61.00 L482.50,42.00 L456.50,19.00 L424.50,7.00 L396.50,4.00 Z M344.00,66.50 L371.50,66.50 L372.00,67.50 L379.50,67.50 L380.00,68.50 L383.50,68.50 L384.00,69.50 L388.50,69.50 L389.00,70.50 L391.50,70.50 L394.00,72.50 L396.50,72.50 L397.00,73.50 L398.50,73.50 L400.00,75.50 L401.50,75.50 L408.00,82.00 L408.00,83.50 L409.00,84.00 L409.00,85.50 L410.00,86.00 L410.00,87.50 L411.00,88.00 L411.00,89.50 L413.00,92.00 L413.00,95.50 L414.00,96.00 L414.00,101.50 L415.00,102.00 L415.00,110.50 L414.00,111.00 L414.00,119.50 L413.00,120.00 L413.00,123.50 L412.00,124.00 L412.00,126.50 L411.00,127.00 L411.00,129.50 L410.00,130.00 L409.00,133.50 L407.00,135.00 L407.00,136.50 L405.00,138.00 L405.00,139.50 L396.50,148.00 L395.00,148.00 L394.50,149.00 L393.00,149.00 L392.50,150.00 L391.00,150.00 L388.50,152.00 L383.00,153.00 L382.50,154.00 L379.00,154.00 L378.50,155.00 L375.00,155.00 L374.50,156.00 L369.00,156.00 L368.50,157.00 L337.00,157.00 L336.50,156.50 L336.50,145.00 L337.50,144.50 L337.50,132.00 L338.50,131.50 L338.50,119.00 L339.50,118.50 L339.50,106.00 L340.50,105.50 L340.50,94.00 L341.50,93.50 L341.50,81.00 L342.50,80.50 L342.50,68.00 Z M9.00,4.00 L4.00,72.50 L85.00,73.00 L64.00,348.50 L141.50,348.50 L163.50,73.00 L245.50,72.50 L250.50,4.00 Z";
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 867 352"><path fill="white" fill-rule="evenodd" d="${d}"/></svg>`;
+  const blob = new Blob([svg], { type: "image/svg+xml" });
+  const url = URL.createObjectURL(blob);
+  const img = new Image();
+  await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = url; });
+  URL.revokeObjectURL(url);
+  const CW = 152, CH = Math.round(352 / 867 * 152);
+  const canvas = document.createElement("canvas");
+  canvas.width = CW; canvas.height = CH;
+  canvas.getContext("2d").drawImage(img, 0, 0, CW, CH);
+  const b64 = canvas.toDataURL("image/png").split(",")[1];
+  const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+  const pdfImg = await doc.embedPng(bytes);
+  const w = 38, h = Math.round(352 / 867 * 38);
+  return { pdfImg, w, h };
+}
+
 async function saveSessionPDF(data, mode = "download") {
   const { PDFDocument, rgb, StandardFonts } = await getPdfLib();
   const doc  = await PDFDocument.create();
   const font = await doc.embedFont(StandardFonts.Helvetica);
   const fontBold = await doc.embedFont(StandardFonts.HelveticaBold);
+  const logo = await embedTRMLogo(doc);
   const GRAY   = rgb(0.4, 0.4, 0.4);
   const LGRAY  = rgb(0.85, 0.85, 0.85);
   const BLACK_R = rgb(0.05, 0.05, 0.05);
@@ -573,7 +594,7 @@ async function saveSessionPDF(data, mode = "download") {
   const draw = (text, x, yp, size, f, c) => page.drawText(text, { x, y: yp, size, font: f || font, color: c || BLACK_R });
   const hline = (yp, c) => page.drawLine({ start: { x: L, y: yp }, end: { x: R, y: yp }, thickness: 0.5, color: c || LGRAY });
   page.drawRectangle({ x: 0, y: 758, width: 612, height: 34, color: rgb(0.04, 0.04, 0.04) });
-  draw("TRM", L, 769, 15, fontBold, rgb(1,1,1));
+  page.drawImage(logo.pdfImg, { x: L, y: 758 + (34 - logo.h) / 2, width: logo.w, height: logo.h });
   draw("Shoulder Testing & Outcome Measures", L + 46, 769, 9, font, GRAY);
   const today = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
   draw(today, R - font.widthOfTextAtSize(today, 9), 769, 9, font, GRAY);
@@ -599,7 +620,7 @@ async function saveSessionPDF(data, mode = "download") {
   const L2 = 48, R2p = 564;
   let y2 = 744;
   page2.drawRectangle({ x: 0, y: 758, width: 612, height: 34, color: rgb(0.04, 0.04, 0.04) });
-  page2.drawText("TRM", { x: L2, y: 769, size: 15, font: fontBold, color: rgb(1,1,1) });
+  page2.drawImage(logo.pdfImg, { x: L2, y: 758 + (34 - logo.h) / 2, width: logo.w, height: logo.h });
   page2.drawText("Shoulder Testing — SOAP Note (Plain Text)", { x: L2 + 46, y: 769, size: 9, font, color: GRAY });
   const wrapLine = (text, fnt, size, maxW) => {
     const words = text.split(" "); const wrapped = []; let cur = "";
@@ -727,7 +748,7 @@ const BLANK_DATA = {
   scaptionForceR: "", scaptionForceL: "",
   grip9090R: "", grip9090L: "", gripFds3R: "", gripFds3L: "",
   ash: { isoIInvLoad: "", isoIUninvLoad: "", isoINotes: "", isoTInvLoad: "", isoTUninvLoad: "", isoTNotes: "", isoYInvLoad: "", isoYUninvLoad: "", isoYNotes: "", valdPlyoInvPeakForce: "", valdPlyoUninvPeakForce: "", valdPlyoInvTimePeak: "", valdPlyoUninvTimePeak: "", valdPlyoInvRFD: "", valdPlyoUninvRFD: "", valdPlyoNotes: "" },
-  posteriorEndurance: { reps: "", timeInv: "", timeUninv: "", notes: "" },
+  posteriorEndurance: { reps: "", repsUninv: "", timeInv: "", timeUninv: "", notes: "" },
   functional: {
     ckcuestReps: "", ckcuestReps2: "", ckcuestReps3: "",
     smbThrowInv: "", smbThrowUninv: "",
@@ -1321,17 +1342,18 @@ function Tab1({ data: d, setData: setD }) {
               Side-lying ER endurance. Resistance = 2% of patient body weight{bwOk ? ` (${(bwNum * 0.02).toFixed(1)} lbs based on entered BW)` : " — enter BW in Body Metrics to auto-calculate"}. Record max reps to fatigue and time held (seconds) for both sides. Time LSI target: ≥90%.
             </div>
             <div style={{ background: "#111", borderRadius: 10, border: `1px solid ${BORDER}`, padding: "14px 16px" }}>
-              <div style={{ fontSize: 10, fontWeight: 800, color: MUTED, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 8 }}>Reps to Fatigue</div>
-              <R2 mb={14} persist>
-                <Field label={`Reps — ${inv} (Involved)`} unit="reps" value={(d.posteriorEndurance || {}).reps || ""} onChange={v => setPE("reps", v)} step="1" />
-                <div><label style={lbl}>Clinical Notes</label><input style={inp} type="text" placeholder="e.g. fatigue at mid-arc" value={(d.posteriorEndurance || {}).notes || ""} onChange={e => setPE("notes", e.target.value)} /></div>
+              <div style={{ fontSize: 10, fontWeight: 800, color: MUTED, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 8 }}>Reps to Fatigue — Bilateral</div>
+              <R2 mb={10} persist>
+                <Field label={`${inv} (Involved)`} unit="reps" value={(d.posteriorEndurance || {}).reps || ""} onChange={v => setPE("reps", v)} step="1" />
+                <Field label={`${uninv} (Uninvolved)`} unit="reps" value={(d.posteriorEndurance || {}).repsUninv || ""} onChange={v => setPE("repsUninv", v)} step="1" />
               </R2>
               {hasVal((d.posteriorEndurance || {}).reps) && (
                 <div style={{ marginBottom: 14, padding: "8px 12px", borderRadius: 6, background: "#0f0f0f", border: `1px solid ${BORDER}`, fontSize: 11, color: MUTED }}>
-                  <span style={{ color: WHITE, fontWeight: 700 }}>Reps Interpretation: </span>
+                  <span style={{ color: WHITE, fontWeight: 700 }}>Reps Interpretation (Involved): </span>
                   {parseFloat((d.posteriorEndurance || {}).reps) >= 20 ? <span style={{ color: LIME }}>✓ Good posterior endurance (≥20 reps)</span> : parseFloat((d.posteriorEndurance || {}).reps) >= 12 ? <span style={{ color: GOLD }}>Moderate — monitor for rotator cuff fatigue patterns</span> : <span style={{ color: RED_BAD }}>Reduced posterior endurance — may indicate posterior cuff deficits</span>}
                 </div>
               )}
+              <div style={{ marginBottom: 14 }}><label style={lbl}>Clinical Notes</label><input style={inp} type="text" placeholder="e.g. fatigue at mid-arc" value={(d.posteriorEndurance || {}).notes || ""} onChange={e => setPE("notes", e.target.value)} /></div>
               <div style={{ fontSize: 10, fontWeight: 800, color: MUTED, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 8 }}>Time Held (seconds) — Bilateral for LSI</div>
               <R2 mb={10} persist>
                 <Field label={`${inv} (Involved)`} unit="sec" value={(d.posteriorEndurance || {}).timeInv || ""} onChange={v => setPE("timeInv", v)} step="1" />
