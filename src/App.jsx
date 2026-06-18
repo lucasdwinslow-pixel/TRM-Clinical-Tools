@@ -70,39 +70,55 @@ function AppLoader({ name }) {
 
 function BackButton() {
   return (
-    <a
-      href="/"
-      style={{
-        position: "fixed",
-        top: 16,
-        left: 16,
-        zIndex: 9999,
-        display: "flex",
-        alignItems: "center",
-        gap: 8,
-        background: "#0b0f12",
-        border: "2px solid #2a2a2a",
-        color: "#aaff00",
-        padding: "8px 14px",
-        fontFamily: "'Barlow Condensed', 'Arial Black', Impact, sans-serif",
-        fontStyle: "italic",
-        fontWeight: 900,
-        fontSize: 17,
-        letterSpacing: "-1px",
-        textTransform: "uppercase",
-        textDecoration: "none",
-        transition: "border-color 0.15s",
-        WebkitTapHighlightColor: "transparent",
-      }}
-      onMouseEnter={e => e.currentTarget.style.borderColor = "#aaff00"}
-      onMouseLeave={e => e.currentTarget.style.borderColor = "#2a2a2a"}
-    >
-      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-        <path d="M8 2L4 6l4 4" stroke="#aaff00" strokeWidth="2"
-          strokeLinecap="round" strokeLinejoin="round"/>
-      </svg>
-      TRM
-    </a>
+    <>
+      <style>{`
+        .trm-back {
+          position: fixed;
+          top: 16px; left: 16px;
+          z-index: 9999;
+          display: flex; align-items: center; gap: 8px;
+          background: #0a0a0a;
+          border: 2px solid #2a2a2a;
+          border-radius: 0;
+          color: #aaff00;
+          padding: 8px 14px;
+          font-family: sans-serif;
+          font-weight: 700;
+          font-size: 12px;
+          letter-spacing: 3px;
+          text-transform: uppercase;
+          text-decoration: none;
+          transition: border-color 0.15s;
+          -webkit-tap-highlight-color: transparent;
+        }
+        .trm-back:hover { border-color: #aaff00; }
+        .trm-back svg { width: 12px; height: 12px; }
+        @media (max-width: 700px) {
+          .trm-back {
+            top: auto;
+            bottom: 20px; left: 14px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid #2a2a2a88;
+            border-radius: 7px;
+            color: #666;
+            padding: 7px 10px;
+            font-weight: 800;
+            font-size: 9px;
+            letter-spacing: 0.07em;
+            box-shadow: 0 1px 6px rgba(0,0,0,0.3);
+          }
+          .trm-back:hover { border-color: #2a2a2a88; }
+          .trm-back svg { width: 10px; height: 10px; }
+        }
+      `}</style>
+      <a href="/" className="trm-back">
+        <svg viewBox="0 0 12 12" fill="none">
+          <path d="M8 2L4 6l4 4" stroke="currentColor" strokeWidth="2"
+            strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+        Playbook
+      </a>
+    </>
   );
 }
 
