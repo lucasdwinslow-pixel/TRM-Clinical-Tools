@@ -1524,7 +1524,7 @@ export default function App() {
       <NewPatientModal open={newPtModal} onConfirm={doNewPatient} onCancel={()=>setNewPtModal(false)}/>
 
       {/* Header */}
-      <div style={{ background:DARK,borderBottom:`1px solid ${BORDER}`,position:"-webkit-sticky",position:"sticky",top:0,zIndex:100,boxShadow:"0 2px 20px rgba(0,0,0,0.8)" }}>
+      <div style={{ background:DARK,borderBottom:`1px solid ${BORDER}`,position:"sticky",top:0,zIndex:100,boxShadow:"0 2px 20px rgba(0,0,0,0.8)" }}>
         <div style={{ maxWidth:900,margin:"0 auto",padding:"0 20px" }}>
           <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",height:58 }}>
             <div style={{ display:"flex",alignItems:"baseline",gap:12 }}>
