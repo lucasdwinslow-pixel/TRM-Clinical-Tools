@@ -4326,8 +4326,8 @@ export default function App() {
     { key: "rom",   label: "ROM",  ids: ["rom"] },
     { key: "grth",  label: "GRTH", ids: ["girth"] },
     { key: "str",   label: "STR",  ids: ["ke", "torque", "hamstring"] },
-    { key: "pwr",   label: "PWR",  ids: ["ValdSquat", "ValdCMJ", "sllandholdcard", "hops"] },
-    { key: "bal",   label: "BAL",  ids: ["ybalance", "agility", "pro"] },
+    { key: "pwr",   label: "PWR",  ids: ["ValdSquat", "ValdCMJ", "SLLandHold", "hops"] },
+    { key: "bal",   label: "BAL",  ids: ["YBalance", "agility", "pro"] },
   ];
   const [activeSection, setActiveSection] = useState("pt");
 
@@ -4357,7 +4357,7 @@ export default function App() {
 
   const scrollToSection = (ids) => {
     const el = document.getElementById(ids[0]);
-    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
   };
 
   return (
