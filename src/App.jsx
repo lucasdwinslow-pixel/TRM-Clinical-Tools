@@ -96,7 +96,7 @@ function BackButton() {
         @media (max-width: 700px) {
           .trm-back {
             top: auto;
-            bottom: 24px; left: 14px;
+            bottom: 68px; left: 14px;
             background: rgba(255,255,255,0.03);
             border: 1px solid #2a2a2a88;
             border-radius: 7px;
