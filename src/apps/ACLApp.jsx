@@ -207,6 +207,22 @@ if (typeof document !== "undefined" && !document.getElementById("trm-mobile-styl
         min-height: 44px !important;
       }
       .trm-sidenav { display: none !important; }
+      .trm-mobile-nav { display: flex !important; }
+      .trm-main-pad { padding-bottom: 64px !important; }
+      .trm-fab { bottom: 52px !important; }
+    }
+    .trm-fab { bottom: 24px; }
+    .trm-mobile-nav {
+      display: none;
+      position: fixed; bottom: 0; left: 0; right: 0;
+      z-index: 150;
+      background: #0f0f0f;
+      border-top: 1px solid rgba(197,255,46,0.2);
+      padding-bottom: env(safe-area-inset-bottom);
+      flex-direction: row;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 14px;
     }
   `;
   document.head.appendChild(s);
@@ -4433,6 +4449,38 @@ export default function App() {
         </nav>
       )}
 
+      {/* ── MOBILE BOTTOM NAV — Testing tab only ── */}
+      {activeTab === 0 && (() => {
+        const idx = sideNavSections.findIndex(s => s.key === activeSection);
+        const cur = sideNavSections[idx] ?? sideNavSections[0];
+        const LIME = "#C5FF2E";
+        return (
+          <div className="trm-mobile-nav">
+            {/* Active section label */}
+            <span style={{ fontSize: 10, fontWeight: 900, color: LIME, letterSpacing: "0.1em", textTransform: "uppercase", flexShrink: 0, minWidth: 36 }}>
+              {cur.label}
+            </span>
+            {/* Tappable dots */}
+            <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 5 }}>
+              {sideNavSections.map(s => (
+                <button key={s.key}
+                  onClick={() => { scrollToSection(s.ids); setActiveSection(s.key); }}
+                  style={{
+                    flex: s.key === activeSection ? 2 : 1,
+                    height: 6, borderRadius: 3, padding: 0, border: "none",
+                    background: s.key === activeSection ? LIME : "#2e2e2e",
+                    cursor: "pointer", transition: "flex 0.2s, background 0.2s",
+                  }} />
+              ))}
+            </div>
+            {/* Counter */}
+            <span style={{ fontSize: 9, fontWeight: 700, color: "#444", flexShrink: 0, minWidth: 24, textAlign: "right" }}>
+              {idx + 1}/{sideNavSections.length}
+            </span>
+          </div>
+        );
+      })()}
+
       {/* ── TOASTS ── */}
       {storageRestored && (
         <div style={{ background: `${LIME}12`, borderBottom: `1px solid ${LIME}33`, padding: "10px 20px", textAlign: "center", fontSize: 11, fontWeight: 700, color: LIME, letterSpacing: "0.08em" }}>
@@ -4446,7 +4494,7 @@ export default function App() {
       )}
 
       {/* ── MAIN CONTENT ── */}
-      <main style={{ maxWidth: 900, margin: "0 auto", padding: "24px 16px 60px" }}>
+      <main className={activeTab === 0 ? "trm-main-pad" : ""} style={{ maxWidth: 900, margin: "0 auto", padding: "24px 16px 60px" }}>
         {activeTab === 0 && (
           <>
             <Tab1 data={data} setData={setData} />
@@ -4460,7 +4508,7 @@ export default function App() {
 
       {/* ── TRM FAB ── */}
       <div className="trm-fab" style={{
-        position: "fixed", bottom: 24, right: 24,
+        position: "fixed", right: 24,
         zIndex: 200, display: "flex", alignItems: "center", gap: 8,
       }}>
         {/* Left group: Reset | Load */}
