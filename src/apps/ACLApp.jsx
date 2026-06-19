@@ -208,8 +208,8 @@ if (typeof document !== "undefined" && !document.getElementById("trm-mobile-styl
       }
       .trm-sidenav { display: none !important; }
       .trm-mobile-nav { display: flex !important; }
-      .trm-main-pad { padding-bottom: 64px !important; }
-      .trm-fab { bottom: 52px !important; }
+      .trm-main-pad { padding-bottom: 80px !important; }
+      .trm-fab { bottom: 72px !important; }
     }
     .trm-fab { bottom: 24px; }
     .trm-mobile-nav {
@@ -218,11 +218,10 @@ if (typeof document !== "undefined" && !document.getElementById("trm-mobile-styl
       z-index: 150;
       background: #0f0f0f;
       border-top: 1px solid rgba(197,255,46,0.2);
-      padding-bottom: env(safe-area-inset-bottom);
       flex-direction: row;
       align-items: center;
-      gap: 10px;
-      padding: 8px 14px;
+      gap: 6px;
+      padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
     }
   `;
   document.head.appendChild(s);
@@ -522,13 +521,13 @@ function NewPatientModal({ open, onConfirm, onCancel }) {
 }
 
 // ─── VALD CARD ────────────────────────────────────────────────────────────────
-function ValdCard({ title, id, fields, values, onChange, highlight, focusable, activeCard, setActiveCard }) {
+function ValdCard({ title, id, fields, values, onChange, highlight, focusable, activeCard, setActiveCard, columns = 3 }) {
   const regularFields = fields.filter(f => f.type !== "textarea");
   const textareaFields = fields.filter(f => f.type === "textarea");
   return (
     <Card title={title} id={id} focusable={focusable} activeCard={activeCard} setActiveCard={setActiveCard}>
       <div style={{ fontSize: 11, color: MUTED, marginBottom: 14 }}>Enter values directly from the Vald ForceDecks report.</div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+      <div style={{ display: "grid", gridTemplateColumns: `repeat(${columns}, 1fr)`, gap: 10 }}>
         {regularFields.map(f => (
           <div key={f.key}>
             <label style={lbl}>{f.label}{f.unit ? ` (${f.unit})` : ""}</label>
@@ -1410,6 +1409,7 @@ function Tab1({ data: d, setData: setD }) {
       <ValdCard title="Countermovement Jump — Vald ForceDecks" id="ValdCMJ"
         fields={valdCMJFields} values={d.valdCMJ || {}}
         onChange={(k, v) => setVald("valdCMJ", k, v)}
+        columns={7}
         focusable activeCard={activeCard} setActiveCard={setActiveCard}
         highlight={(vals) => vals.modRSI && (
           <div style={{ marginTop: 12 }}>
@@ -4456,27 +4456,30 @@ export default function App() {
         const LIME = "#C5FF2E";
         return (
           <div className="trm-mobile-nav">
-            {/* Active section label */}
-            <span style={{ fontSize: 10, fontWeight: 900, color: LIME, letterSpacing: "0.1em", textTransform: "uppercase", flexShrink: 0, minWidth: 36 }}>
-              {cur.label}
-            </span>
-            {/* Tappable dots */}
-            <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 5 }}>
-              {sideNavSections.map(s => (
+            {sideNavSections.map(s => {
+              const active = s.key === activeSection;
+              return (
                 <button key={s.key}
                   onClick={() => { scrollToSection(s.ids); setActiveSection(s.key); }}
                   style={{
-                    flex: s.key === activeSection ? 2 : 1,
-                    height: 6, borderRadius: 3, padding: 0, border: "none",
-                    background: s.key === activeSection ? LIME : "#2e2e2e",
-                    cursor: "pointer", transition: "flex 0.2s, background 0.2s",
-                  }} />
-              ))}
-            </div>
-            {/* Counter */}
-            <span style={{ fontSize: 9, fontWeight: 700, color: "#444", flexShrink: 0, minWidth: 24, textAlign: "right" }}>
-              {idx + 1}/{sideNavSections.length}
-            </span>
+                    flex: 1,
+                    height: 44,
+                    borderRadius: 8,
+                    border: active ? "none" : "1px solid #2a2a2a",
+                    background: active ? LIME : "#181818",
+                    color: active ? "#0f0f0f" : "#555",
+                    fontSize: 10,
+                    fontWeight: 800,
+                    letterSpacing: "0.08em",
+                    textTransform: "uppercase",
+                    cursor: "pointer",
+                    transition: "background 0.15s, color 0.15s",
+                    padding: 0,
+                  }}>
+                  {s.label}
+                </button>
+              );
+            })}
           </div>
         );
       })()}
