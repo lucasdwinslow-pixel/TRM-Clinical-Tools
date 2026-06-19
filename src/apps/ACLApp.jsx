@@ -3404,6 +3404,7 @@ function sanitizePdf(str) {
     .replace(/×/g, "x")
     .replace(/÷/g, "/")
     .replace(/°/g, " deg")
+    .replace(/−/g, "-")   // mathematical minus sign (U+2212)
     .replace(/–/g, "-")
     .replace(/—/g, "-")
     .replace(/'/g, "'")
@@ -3543,7 +3544,6 @@ async function saveSessionPDF(data, mode = "download") {
     ["Side",          p.involvedSide  || "—"],
     ["Graft",         p.graftType     || "—"],
     ["Surgeon",       p.surgeon       ? `Dr. ${p.surgeon}` : "—"],
-    ["Sex",           p.sex           || "—"],
   ];
   const ptColW = CW / ptFields.length;
   ptFields.forEach(([label, val], i) => {
@@ -4451,37 +4451,93 @@ export default function App() {
           <>
             <Tab1 data={data} setData={setData} />
 
-            {/* ── UTILITY STRIP: Reset / Load / Share ── */}
-            <div style={{ display: "flex", gap: 8, marginBottom: 16, justifyContent: "flex-end" }}>
-              <button onClick={() => setNewPtModal(true)} style={{ padding: "8px 16px", background: "rgba(248,113,113,0.06)", border: `1px solid rgba(248,113,113,0.2)`, borderRadius: 8, color: "#f87171aa", fontSize: 9, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", cursor: "pointer" }}>Reset</button>
-              <button onClick={() => fileInputRef.current.click()} style={{ padding: "8px 16px", background: "rgba(255,255,255,0.03)", border: `1px solid ${BORDER}`, borderRadius: 8, color: MUTED, fontSize: 9, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", cursor: "pointer" }}>Load PDF</button>
-              <button onClick={handleAirDrop} disabled={saving} style={{ padding: "8px 14px", background: "rgba(255,255,255,0.03)", border: `1px solid ${BORDER}`, borderRadius: 8, color: MUTED, fontSize: 13, cursor: saving ? "default" : "pointer" }}>⬆</button>
-            </div>
-
-            {/* ── GENERATE CLINICAL REPORT — static CTA at bottom of Testing tab ── */}
-            <button
-              onClick={handleSavePDF}
-              disabled={saving}
-              style={{
-                width: "100%", padding: "20px 0", borderRadius: 9999,
-                fontSize: 11, fontWeight: 900,
-                letterSpacing: "0.2em", textTransform: "uppercase",
-                cursor: saving ? "default" : "pointer",
-                background: saving ? `${LIME}66` : `linear-gradient(135deg, ${LIME}, ${LIME_DIM})`,
-                color: "#0b0f12", border: "none",
-                boxShadow: saving ? "none" : `0 8px 32px ${LIME}44`,
-                opacity: saving ? 0.7 : 1,
-                transition: "all 0.2s",
-                marginBottom: 40,
-              }}>
-              {saving ? "Generating…" : "Generate Clinical Report"}
-            </button>
           </>
         )}
         {activeTab === 1 && <Tab2 currentData={data} sessions={sessions} setSessions={setSessions} onAddSession={() => compareInputRef.current.click()} />}
         {activeTab === 2 && <Tab3 currentData={data} setData={setData} />}
         {activeTab === 3 && <Tab4 currentData={data} setData={setData} />}
       </main>
+
+      {/* ── TRM FAB ── */}
+      <div className="trm-fab" style={{
+        position: "fixed", bottom: 24, right: 24,
+        zIndex: 200, display: "flex", alignItems: "center", gap: 8,
+      }}>
+        {/* Left group: Reset | Load */}
+        <div style={{
+          display: "flex", alignItems: "stretch",
+          border: "1px solid rgba(255,255,255,0.15)",
+          borderRadius: 8, overflow: "hidden",
+          background: "rgba(255,255,255,0.05)",
+          boxShadow: "0 2px 10px rgba(0,0,0,0.5)",
+        }}>
+          <button
+            onClick={() => setNewPtModal(true)}
+            style={{
+              padding: "8px 12px",
+              background: "rgba(248,113,113,0.09)", color: "rgba(248,113,113,0.85)",
+              border: "none", cursor: "pointer",
+              fontSize: 9, fontWeight: 800,
+              letterSpacing: "0.07em", textTransform: "uppercase",
+            }}>
+            Reset
+          </button>
+          <div style={{ width: 1, background: "rgba(255,255,255,0.12)", flexShrink: 0 }} />
+          <button
+            onClick={() => fileInputRef.current.click()}
+            style={{
+              padding: "8px 12px",
+              background: "transparent", color: "rgba(255,255,255,0.55)",
+              border: "none", cursor: "pointer",
+              fontSize: 9, fontWeight: 800,
+              letterSpacing: "0.07em", textTransform: "uppercase",
+            }}>
+            Load
+          </button>
+        </div>
+
+        {/* Right group: Save PDF | Share */}
+        <div style={{
+          display: "flex", alignItems: "stretch",
+          border: `1px solid ${LIME}52`,
+          borderRadius: 8, overflow: "hidden",
+          background: LIME + "0f",
+          boxShadow: `0 2px 10px ${LIME}14`,
+          opacity: saving ? 0.5 : 1,
+        }}>
+          <button
+            onClick={handleSavePDF}
+            disabled={saving}
+            style={{
+              padding: "8px 14px",
+              background: "transparent", color: LIME + "f2",
+              border: "none", cursor: saving ? "default" : "pointer",
+              fontSize: 9, fontWeight: 800,
+              letterSpacing: "0.07em", textTransform: "uppercase",
+            }}>
+            {saving ? "Saving…" : "Save PDF"}
+          </button>
+          <div style={{ width: 1, background: LIME + "40", flexShrink: 0 }} />
+          <button
+            onClick={handleAirDrop}
+            disabled={saving}
+            title="Share / AirDrop"
+            style={{
+              padding: "6px 10px",
+              background: "transparent",
+              border: "none", cursor: saving ? "default" : "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="4" y="10" width="16" height="12" rx="2"
+                fill="rgba(56,189,248,0.15)" stroke="rgba(56,189,248,0.9)" strokeWidth="1.5"/>
+              <path d="M12 2V15M12 2L9 5.5M12 2L15 5.5"
+                stroke="rgba(56,189,248,0.9)" strokeWidth="1.6"
+                strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
+        </div>
+      </div>
 
       {/* ── FOOTER ── */}
       <div style={{ borderTop: `1px solid ${BORDER}`, padding: "16px 20px", textAlign: "center", background: "rgba(0,0,0,0.3)" }}>
