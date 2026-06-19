@@ -55,7 +55,15 @@ if (typeof document!=="undefined"&&!document.getElementById("trm-hip-styles")) {
     html,body{overscroll-behavior-y:none}
     .trm-fab{bottom:max(24px,env(safe-area-inset-bottom,24px))!important;right:max(24px,env(safe-area-inset-right,24px))!important}
     .trm-main-content{padding-bottom:max(100px,calc(80px + env(safe-area-inset-bottom,0px)))!important}
+    .trm-sidenav{position:fixed;right:0;top:50%;transform:translateY(-50%);z-index:150;display:flex;flex-direction:column;gap:2px;padding:6px 0;background:rgba(11,15,18,0.85);backdrop-filter:blur(8px);border-left:1px solid rgba(255,255,255,0.08);border-radius:8px 0 0 8px}
+    .trm-sidenav-item{display:flex;align-items:center;justify-content:center;width:34px;height:26px;cursor:pointer;font-size:8px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.25);border-left:2px solid transparent;transition:all 0.15s;user-select:none}
+    .trm-sidenav-item:hover{color:rgba(255,255,255,0.6)!important}
+    .trm-sidenav-item.active{color:#b8ff57!important;border-left-color:#b8ff57!important;text-shadow:0 0 8px rgba(184,255,87,0.5)}
+    .trm-mobile-nav{display:none;position:fixed;bottom:0;left:0;right:0;z-index:150;background:#0f0f0f;border-top:1px solid rgba(184,255,87,0.2);flex-direction:row;align-items:center;gap:6px;padding:8px 10px calc(8px + env(safe-area-inset-bottom))}
     @media(max-width:600px){
+      .trm-sidenav{display:none!important}
+      .trm-mobile-nav{display:flex!important}
+      .trm-main-content{padding-bottom:80px!important}
       .trm-r2,.trm-r3,.trm-r4{grid-template-columns:1fr!important}
       .trm-r2-persist{grid-template-columns:1fr 1fr!important}
       .trm-card-body{padding:14px!important}
@@ -63,10 +71,9 @@ if (typeof document!=="undefined"&&!document.getElementById("trm-hip-styles")) {
       .trm-tab-sub{display:none!important}
       .trm-tab-btn{padding:10px 12px!important}
       .trm-stat-bar{gap:16px!important;padding:10px 14px!important}
-      .trm-fab{bottom:16px!important;right:12px!important;gap:5px!important}
+      .trm-fab{bottom:72px!important;right:12px!important;gap:5px!important}
       .trm-fab button{padding:10px 12px!important;font-size:11px!important;min-height:44px;min-width:44px}
       input[type="number"],input[type="text"],select,textarea{font-size:16px!important;min-height:44px!important}
-      .trm-main-content{padding-bottom:90px!important}
     }
   `;
   document.head.appendChild(s);
@@ -115,8 +122,9 @@ function Field({ label, value, onChange, type="number", step="0.1", placeholder=
     <div>
       <label style={lbl}>{label}{unit?` (${unit})`:""}</label>
       <input style={readOnly?{...inp,color:LIME,background:"#0f0f0f",borderColor:LIME+"33",cursor:"default"}:invalid?inpInvalid:inp}
-        type={readOnly?"text":type} step={step} placeholder={placeholder}
+        type="text"
         inputMode={!readOnly&&type==="number"?"decimal":undefined}
+        step={step} placeholder={placeholder}
         autoCorrect="off" autoCapitalize="off" spellCheck={false}
         value={value} readOnly={readOnly}
         onChange={readOnly?undefined:e=>onChange(e.target.value)}
@@ -203,7 +211,9 @@ function NewPatientModal({ open, onConfirm, onCancel }) {
 function buildNote(d) {
   const inv = d.patient.involvedSide, invR = inv==="Right", uninv = invR?"Left":"Right";
   const dyn = d.dynamo||{};
-  const lines=[]; const add=l=>lines.push(l); const br=()=>lines.push(""); const sub=l=>lines.push(`  * ${l}`); const sub2=l=>lines.push(`    - ${l}`);
+  const IND="   "; const IND2="      ";
+  const lines=[]; const add=l=>lines.push(l); const br=()=>lines.push("");
+  const sub=l=>lines.push(IND+l); const sub2=l=>lines.push(IND2+l);
   const subIf=(c,l)=>{ if(c) sub(l); }; const sub2If=(c,l)=>{ if(c) sub2(l); };
 
   add("HIP TESTING & OUTCOME MEASURES"); add(`Date: ${d.patient.date||"[date]"}`);
@@ -246,11 +256,11 @@ function buildNote(d) {
       const lsi=invR?calcLSI(dyn[pfR],dyn[pfL]):calcLSI(dyn[pfL],dyn[pfR]);
       const tpfAsym=calcAsym(dyn[tpfR],dyn[tpfL]);
       if(lsi) lsiVals.push(parseFloat(lsi));
-      let line=`  * ${name}: L ${dyn[pfL]||"-"} N / R ${dyn[pfR]||"-"} N`;
-      if(lsi) line+=`  |  LSI ${lsi}%${parseFloat(lsi)>=90?" [PASS]":" [FAIL]"}`;
-      add(line);
+      sub(`${name}: L ${dyn[pfL]||"-"} N / R ${dyn[pfR]||"-"} N`);
+      if(lsi) sub2(`LSI ${lsi}%${parseFloat(lsi)>=90?" [PASS]":" [FAIL]"}`);
       if(hasVal(dyn[tpfR])&&hasVal(dyn[tpfL])) {
-        add(`    - TPF: L ${dyn[tpfL]||"-"} ms / R ${dyn[tpfR]||"-"} ms${tpfAsym?`  |  Asym ${tpfAsym}%${parseFloat(tpfAsym)<=10?" [PASS]":" [FAIL]"}`:""}`);
+        sub(`TPF: L ${dyn[tpfL]||"-"} ms / R ${dyn[tpfR]||"-"} ms`);
+        if(tpfAsym) sub2(`TPF Asym: ${tpfAsym}%${parseFloat(tpfAsym)<=10?" [PASS]":" [FAIL]"}`);
       }
     });
     if(lsiVals.length>0) {
@@ -485,10 +495,10 @@ function Tab1({ data:d, setData:setD }) {
         </div>
       </div>
       <R4 mb={8}>
-        <div><label style={lbl}>Left PF (N)</label><input style={inp} type="number" inputMode="decimal" placeholder="—" value={pfL} onChange={e=>setDyn(pfLKey,e.target.value)}/></div>
-        <div><label style={lbl}>Right PF (N)</label><input style={inp} type="number" inputMode="decimal" placeholder="—" value={pfR} onChange={e=>setDyn(pfRKey,e.target.value)}/></div>
-        <div><label style={lbl}>Left TPF (ms)</label><input style={inp} type="number" inputMode="decimal" placeholder="—" value={tpfL} onChange={e=>setDyn(tpfLKey,e.target.value)}/></div>
-        <div><label style={lbl}>Right TPF (ms)</label><input style={inp} type="number" inputMode="decimal" placeholder="—" value={tpfR} onChange={e=>setDyn(tpfRKey,e.target.value)}/></div>
+        <div><label style={lbl}>Left PF (N)</label><input style={inp} type="text" inputMode="decimal" autoCorrect="off" autoCapitalize="off" spellCheck={false} placeholder="—" value={pfL} onChange={e=>setDyn(pfLKey,e.target.value)}/></div>
+        <div><label style={lbl}>Right PF (N)</label><input style={inp} type="text" inputMode="decimal" autoCorrect="off" autoCapitalize="off" spellCheck={false} placeholder="—" value={pfR} onChange={e=>setDyn(pfRKey,e.target.value)}/></div>
+        <div><label style={lbl}>Left TPF (ms)</label><input style={inp} type="text" inputMode="decimal" autoCorrect="off" autoCapitalize="off" spellCheck={false} placeholder="—" value={tpfL} onChange={e=>setDyn(tpfLKey,e.target.value)}/></div>
+        <div><label style={lbl}>Right TPF (ms)</label><input style={inp} type="text" inputMode="decimal" autoCorrect="off" autoCapitalize="off" spellCheck={false} placeholder="—" value={tpfR} onChange={e=>setDyn(tpfRKey,e.target.value)}/></div>
       </R4>
       {(lsi||tpfAsym)&&<div style={{ display:"flex",gap:16,flexWrap:"wrap" }}>
         {lsi&&<Badge pass={parseFloat(lsi)>=90} label={`PF LSI ${parseFloat(lsi)>=90?"meets >=90%":"below 90%"}`}/>}
@@ -544,11 +554,11 @@ function Tab1({ data:d, setData:setD }) {
               <R2 mb={0} persist>
                 <div>
                   <label style={lbl}>Left (°)</label>
-                  <input style={isOOR(rangeKey,lVal)?inpInvalid:inp} type="number" inputMode="decimal" step="1" placeholder="—" value={lVal} onChange={e=>sd(lKey,e.target.value)}/>
+                  <input style={isOOR(rangeKey,lVal)?inpInvalid:inp} type="text" inputMode="decimal" autoCorrect="off" autoCapitalize="off" spellCheck={false} placeholder="—" value={lVal} onChange={e=>sd(lKey,e.target.value)}/>
                 </div>
                 <div>
                   <label style={lbl}>Right (°)</label>
-                  <input style={isOOR(rangeKey,rVal)?inpInvalid:inp} type="number" inputMode="decimal" step="1" placeholder="—" value={rVal} onChange={e=>sd(rKey,e.target.value)}/>
+                  <input style={isOOR(rangeKey,rVal)?inpInvalid:inp} type="text" inputMode="decimal" autoCorrect="off" autoCapitalize="off" spellCheck={false} placeholder="—" value={rVal} onChange={e=>sd(rKey,e.target.value)}/>
                 </div>
               </R2>
               {deficit&&<div style={{ marginTop:4,fontSize:11,fontWeight:700,color:GOLD }}>⚠ {inv} side deficit detected</div>}
@@ -593,21 +603,21 @@ function Tab1({ data:d, setData:setD }) {
         <R2 mb={10}>
           <div>
             <label style={lbl}>Peak Force Left (N)</label>
-            <input style={inp} type="number" inputMode="decimal" placeholder="—" value={imt.pfL} onChange={e=>setIMTP("pfL",e.target.value)}/>
+            <input style={inp} type="text" inputMode="decimal" autoCorrect="off" autoCapitalize="off" spellCheck={false} placeholder="—" value={imt.pfL} onChange={e=>setIMTP("pfL",e.target.value)}/>
           </div>
           <div>
             <label style={lbl}>Peak Force Right (N)</label>
-            <input style={inp} type="number" inputMode="decimal" placeholder="—" value={imt.pfR} onChange={e=>setIMTP("pfR",e.target.value)}/>
+            <input style={inp} type="text" inputMode="decimal" autoCorrect="off" autoCapitalize="off" spellCheck={false} placeholder="—" value={imt.pfR} onChange={e=>setIMTP("pfR",e.target.value)}/>
           </div>
         </R2>
         <R2 mb={10}>
           <div>
             <label style={lbl}>TPF Left (ms)</label>
-            <input style={inp} type="number" inputMode="decimal" placeholder="—" value={imt.tpfL} onChange={e=>setIMTP("tpfL",e.target.value)}/>
+            <input style={inp} type="text" inputMode="decimal" autoCorrect="off" autoCapitalize="off" spellCheck={false} placeholder="—" value={imt.tpfL} onChange={e=>setIMTP("tpfL",e.target.value)}/>
           </div>
           <div>
             <label style={lbl}>TPF Right (ms)</label>
-            <input style={inp} type="number" inputMode="decimal" placeholder="—" value={imt.tpfR} onChange={e=>setIMTP("tpfR",e.target.value)}/>
+            <input style={inp} type="text" inputMode="decimal" autoCorrect="off" autoCapitalize="off" spellCheck={false} placeholder="—" value={imt.tpfR} onChange={e=>setIMTP("tpfR",e.target.value)}/>
           </div>
         </R2>
         {(imtpPFAsym!==null||imtpTPFAsym!==null)&&(
@@ -631,28 +641,28 @@ function Tab1({ data:d, setData:setD }) {
         <R3 mb={10}>
           <div>
             <label style={lbl}>Jump Height (cm)</label>
-            <input style={inp} type="number" inputMode="decimal" step="0.1" placeholder="—" value={cmj.jumpHeight} onChange={e=>setCMJ("jumpHeight",e.target.value)}/>
+            <input style={inp} type="text" inputMode="decimal" autoCorrect="off" autoCapitalize="off" spellCheck={false} placeholder="—" value={cmj.jumpHeight} onChange={e=>setCMJ("jumpHeight",e.target.value)}/>
           </div>
           <div>
             <label style={lbl}>Mod RSI</label>
-            <input style={inp} type="number" inputMode="decimal" step="0.01" placeholder="—" value={cmj.modRSI} onChange={e=>setCMJ("modRSI",e.target.value)}/>
+            <input style={inp} type="text" inputMode="decimal" autoCorrect="off" autoCapitalize="off" spellCheck={false} placeholder="—" value={cmj.modRSI} onChange={e=>setCMJ("modRSI",e.target.value)}/>
           </div>
           <div/>
         </R3>
         <R3 mb={10}>
           <div>
             <label style={lbl}>Ecc Impulse Asym (%)</label>
-            <input style={isOOR("cmjAsym",cmj.eccAsym)?inpInvalid:inp} type="number" inputMode="decimal" step="0.1" placeholder="—" value={cmj.eccAsym} onChange={e=>setCMJ("eccAsym",e.target.value)}/>
+            <input style={isOOR("cmjAsym",cmj.eccAsym)?inpInvalid:inp} type="text" inputMode="decimal" autoCorrect="off" autoCapitalize="off" spellCheck={false} placeholder="—" value={cmj.eccAsym} onChange={e=>setCMJ("eccAsym",e.target.value)}/>
             {hasVal(cmj.eccAsym)&&<div style={{ marginTop:4,fontSize:11,fontWeight:700,color:asymColor(cmj.eccAsym) }}>{parseFloat(cmj.eccAsym)<=10?"[PASS] Meets <10%":"[FAIL] Exceeds 10%"}</div>}
           </div>
           <div>
             <label style={lbl}>Conc Impulse Asym (%)</label>
-            <input style={isOOR("cmjAsym",cmj.concAsym)?inpInvalid:inp} type="number" inputMode="decimal" step="0.1" placeholder="—" value={cmj.concAsym} onChange={e=>setCMJ("concAsym",e.target.value)}/>
+            <input style={isOOR("cmjAsym",cmj.concAsym)?inpInvalid:inp} type="text" inputMode="decimal" autoCorrect="off" autoCapitalize="off" spellCheck={false} placeholder="—" value={cmj.concAsym} onChange={e=>setCMJ("concAsym",e.target.value)}/>
             {hasVal(cmj.concAsym)&&<div style={{ marginTop:4,fontSize:11,fontWeight:700,color:asymColor(cmj.concAsym) }}>{parseFloat(cmj.concAsym)<=10?"[PASS] Meets <10%":"[FAIL] Exceeds 10%"}</div>}
           </div>
           <div>
             <label style={lbl}>CoV (%)</label>
-            <input style={isOOR("cmjCov",cmj.cov)?inpInvalid:inp} type="number" inputMode="decimal" step="0.1" placeholder="—" value={cmj.cov} onChange={e=>setCMJ("cov",e.target.value)}/>
+            <input style={isOOR("cmjCov",cmj.cov)?inpInvalid:inp} type="text" inputMode="decimal" autoCorrect="off" autoCapitalize="off" spellCheck={false} placeholder="—" value={cmj.cov} onChange={e=>setCMJ("cov",e.target.value)}/>
             {hasVal(cmj.cov)&&<div style={{ marginTop:4,fontSize:11,fontWeight:700,color:asymColor(cmj.cov) }}>{parseFloat(cmj.cov)<=10?"[PASS] CoV <10%":"[FAIL] CoV >10%"}</div>}
           </div>
         </R3>
@@ -672,21 +682,21 @@ function Tab1({ data:d, setData:setD }) {
         <R2 mb={10}>
           <div>
             <label style={lbl}>Peak Landing Force Left (N)</label>
-            <input style={inp} type="number" inputMode="decimal" placeholder="—" value={slh.lPeakForce} onChange={e=>setSLH("lPeakForce",e.target.value)}/>
+            <input style={inp} type="text" inputMode="decimal" autoCorrect="off" autoCapitalize="off" spellCheck={false} placeholder="—" value={slh.lPeakForce} onChange={e=>setSLH("lPeakForce",e.target.value)}/>
           </div>
           <div>
             <label style={lbl}>Peak Landing Force Right (N)</label>
-            <input style={inp} type="number" inputMode="decimal" placeholder="—" value={slh.rPeakForce} onChange={e=>setSLH("rPeakForce",e.target.value)}/>
+            <input style={inp} type="text" inputMode="decimal" autoCorrect="off" autoCapitalize="off" spellCheck={false} placeholder="—" value={slh.rPeakForce} onChange={e=>setSLH("rPeakForce",e.target.value)}/>
           </div>
         </R2>
         <R2 mb={10}>
           <div>
             <label style={lbl}>Time to Stabilization Left (s)</label>
-            <input style={inp} type="number" inputMode="decimal" step="0.01" placeholder="—" value={slh.lTTS} onChange={e=>setSLH("lTTS",e.target.value)}/>
+            <input style={inp} type="text" inputMode="decimal" autoCorrect="off" autoCapitalize="off" spellCheck={false} placeholder="—" value={slh.lTTS} onChange={e=>setSLH("lTTS",e.target.value)}/>
           </div>
           <div>
             <label style={lbl}>Time to Stabilization Right (s)</label>
-            <input style={inp} type="number" inputMode="decimal" step="0.01" placeholder="—" value={slh.rTTS} onChange={e=>setSLH("rTTS",e.target.value)}/>
+            <input style={inp} type="text" inputMode="decimal" autoCorrect="off" autoCapitalize="off" spellCheck={false} placeholder="—" value={slh.rTTS} onChange={e=>setSLH("rTTS",e.target.value)}/>
           </div>
         </R2>
         {(slForceAsym!==null||slTTSAsym!==null)&&(
@@ -731,13 +741,13 @@ function Tab1({ data:d, setData:setD }) {
                         <span style={{ fontSize:10,color:MUTED,fontWeight:700 }}>T{t+1}</span>
                         <div>
                           <label style={{...lbl,marginBottom:2}}>ft</label>
-                          <input style={inp} type="number" inputMode="decimal" step="1" min="0" placeholder="0"
+                          <input style={inp} type="text" inputMode="decimal" autoCorrect="off" autoCapitalize="off" spellCheck={false} placeholder="0"
                             value={d.hops[key][t].ft}
                             onChange={e=>{ const trials=d.hops[key].map((tr,i)=>i===t?{...tr,ft:e.target.value}:tr); sd("hops",{...d.hops,[key]:trials}); }}/>
                         </div>
                         <div>
                           <label style={{...lbl,marginBottom:2}}>in</label>
-                          <input style={inp} type="number" inputMode="decimal" step="0.1" min="0" max="11.9" placeholder="0"
+                          <input style={inp} type="text" inputMode="decimal" autoCorrect="off" autoCapitalize="off" spellCheck={false} placeholder="0"
                             value={d.hops[key][t].in}
                             onChange={e=>{ const trials=d.hops[key].map((tr,i)=>i===t?{...tr,in:e.target.value}:tr); sd("hops",{...d.hops,[key]:trials}); }}/>
                         </div>
@@ -775,7 +785,7 @@ function Tab1({ data:d, setData:setD }) {
                       <span style={{ fontSize:10,color:MUTED,fontWeight:700 }}>T{t+1}</span>
                       <div>
                         <label style={{...lbl,marginBottom:2}}>sec</label>
-                        <input style={inp} type="number" inputMode="decimal" step="0.01" min="0" placeholder="0.00"
+                        <input style={inp} type="text" inputMode="decimal" autoCorrect="off" autoCapitalize="off" spellCheck={false} placeholder="0.00"
                           value={d.hops[key][t]}
                           onChange={e=>{ const trials=d.hops[key].map((v,i)=>i===t?e.target.value:v); sd("hops",{...d.hops,[key]:trials}); }}/>
                       </div>
@@ -802,7 +812,7 @@ function Tab1({ data:d, setData:setD }) {
         <R3>
           <div>
             <label style={lbl}>Best Time (sec)</label>
-            <input style={isOOR("agilityTime",d.agilityTime)?inpInvalid:inp} type="number" inputMode="decimal" step="0.01" placeholder="e.g. 4.42" value={d.agilityTime} onChange={e=>sd("agilityTime",e.target.value)}/>
+            <input style={isOOR("agilityTime",d.agilityTime)?inpInvalid:inp} type="text" inputMode="decimal" autoCorrect="off" autoCapitalize="off" spellCheck={false} placeholder="e.g. 4.42" value={d.agilityTime} onChange={e=>sd("agilityTime",e.target.value)}/>
           </div>
           <div style={{ gridColumn:"span 2" }}>
             <label style={lbl}>Comparison Norm Group</label>
@@ -978,9 +988,143 @@ function Tab2({ currentData:d, sessions, setSessions, onAddSession }) {
   const colW=90,labelW=180;
   const totalW=labelW+(allCols.length*colW)+(hasSessions?60:0);
 
+  const [paragraph,setParagraph]=useState("");
+  const [copiedPara,setCopiedPara]=useState(false);
+
   const delta=(cur,prev,higher)=>{ if(cur==null||prev==null||cur===""||prev==="") return null; const c=parseFloat(cur),p=parseFloat(prev); if(isNaN(c)||isNaN(p)) return null; const diff=(c-p).toFixed(1); const dir=c>p?"up":c<p?"down":"flat"; return{diff,dir}; };
   const deltaColor=dir=>dir==="up"?LIME:dir==="down"?RED_BAD:MUTED;
   const deltaArrow=dir=>dir==="up"?"^":dir==="down"?"v":"-";
+
+  const n=v=>parseFloat(v)||0;
+  const changed=(cur,prev)=>{ if(!cur||!prev) return null; const diff=Math.abs(n(cur)-n(prev)).toFixed(1); const dir=n(cur)>n(prev)?"increased":"decreased"; return{diff,dir}; };
+
+  const generateParagraph=()=>{
+    const inv=d.patient.involvedSide||"involved"; const invR=inv==="Right"; const uninv=invR?"Left":"Right";
+    const cur=currentMetrics; const prev=hasSessions?sessionCols[sessionCols.length-1]?.metrics:null;
+    const sentences=[];
+
+    // ── Intro ──
+    const wks=d.patient.weeksPostOp;
+    const dx=d.patient.diagnosis||"hip pathology";
+    let intro=`Patient is`;
+    if(wks) intro+=` ${wks} weeks post-op from ${dx}`;
+    else intro+=` s/p ${dx}`;
+    intro+=`, presenting for formal return-to-sport testing. The following objective findings were recorded`;
+    if(prev) intro+=`, with comparison to prior session on ${prev.date||"previous visit"}`;
+    sentences.push(intro+".");
+
+    // ── Dynamo strength ──
+    const dynKeys=["abdLSI","addLSI","erLSI","irLSI"];
+    const dynLabels={abdLSI:"hip abduction",addLSI:"hip adduction",erLSI:"external rotation",irLSI:"internal rotation"};
+    const dynResults=dynKeys.map(k=>cur[k]?{key:k,label:dynLabels[k],val:cur[k]}:null).filter(Boolean);
+    if(dynResults.length>0){
+      const avgLSI=cur.dynamoAvgLSI;
+      const allMet=dynResults.every(r=>n(r.val)>=90);
+      const noneMet=dynResults.every(r=>n(r.val)<80);
+      let s=`Isometric hip strength testing (VALD Dynamo) demonstrates LSI values of: ${dynResults.map(r=>`${r.label} ${r.val}%`).join(", ")}`;
+      if(avgLSI) s+=`, with an average LSI of ${avgLSI}%`;
+      if(allMet) s+=` — all movements meeting the ≥90% return-to-sport benchmark`;
+      else if(noneMet) s+=` — all values below the 80% threshold, indicating meaningful strength deficits`;
+      else {
+        const failing=dynResults.filter(r=>n(r.val)<90).map(r=>r.label);
+        s+=`; ${failing.join(" and ")} remain${failing.length===1?"s":""} below the ≥90% threshold`;
+      }
+      if(prev&&prev.dynamoAvgLSI&&avgLSI){
+        const ch=changed(avgLSI,prev.dynamoAvgLSI);
+        if(ch) s+=`; average LSI has ${ch.dir} by ${ch.diff}% since last session`;
+      }
+      sentences.push(s+".");
+    }
+
+    // ── IMTP ──
+    if(cur.imtpPFAsym!==null){
+      const v=n(cur.imtpPFAsym);
+      let s=`Isometric mid-thigh pull peak force asymmetry is ${cur.imtpPFAsym}%`;
+      if(v<=10) s+=`, meeting the ≤10% bilateral threshold`;
+      else if(v<=15) s+=`, borderline relative to the ≤10% threshold`;
+      else s+=`, exceeding the ≤10% threshold — bilateral force production deficit warrants attention`;
+      if(prev&&prev.imtpPFAsym!==null){const ch=changed(prev.imtpPFAsym,cur.imtpPFAsym); if(ch) s+=`; asymmetry has ${ch.dir} from ${prev.imtpPFAsym}% at last session`;}
+      sentences.push(s+".");
+    }
+
+    // ── CMJ ──
+    const cmj=d.cmj||{};
+    if(hasVal(cmj.eccAsym)||hasVal(cmj.concAsym)){
+      const parts=[];
+      if(hasVal(cmj.eccAsym)) parts.push(`eccentric braking impulse asymmetry ${cmj.eccAsym}% (${n(cmj.eccAsym)<=10?"within":"exceeds"} ≤10% threshold)`);
+      if(hasVal(cmj.concAsym)) parts.push(`concentric impulse asymmetry ${cmj.concAsym}% (${n(cmj.concAsym)<=10?"within":"exceeds"} ≤10% threshold)`);
+      if(cmj.jumpHeight) parts.push(`jump height ${cmj.jumpHeight} cm`);
+      sentences.push(`Countermovement jump force platform assessment reveals ${parts.join("; ")}.`);
+    }
+
+    // ── SLLAH ──
+    if(cur.slForceAsym!==null){
+      let s=`Single leg land and hold demonstrates peak landing force asymmetry of ${cur.slForceAsym}% (${n(cur.slForceAsym)<=10?"within":"exceeds"} ≤10% threshold)`;
+      if(cur.slTTSAsym!==null) s+=` and time-to-stabilization asymmetry of ${cur.slTTSAsym}% (${n(cur.slTTSAsym)<=10?"within":"exceeds"} threshold)`;
+      sentences.push(s+".");
+    }
+
+    // ── Hops ──
+    const hopVals=[
+      {name:"single hop",cur:cur.hopSingle,prev:prev?.hopSingle},
+      {name:"triple hop",cur:cur.hopTriple,prev:prev?.hopTriple},
+      {name:"crossover hop",cur:cur.hopCross,prev:prev?.hopCross},
+      {name:"6-meter timed hop",cur:cur.hopTimed,prev:prev?.hopTimed},
+    ].filter(h=>h.cur!==null);
+    if(hopVals.length>0){
+      const met=hopVals.filter(h=>n(h.cur)>=90);
+      const notMet=hopVals.filter(h=>n(h.cur)<90);
+      const avg=(hopVals.reduce((a,h)=>a+n(h.cur),0)/hopVals.length).toFixed(1);
+      let s=`Functional hop testing yields an average LSI of ${avg}% (${hopVals.map(h=>`${h.name}: ${h.cur}%`).join(", ")})`;
+      if(met.length===hopVals.length) s+=`, with all tests meeting the ≥90% RTS benchmark`;
+      else if(met.length>0) s+=`; the ${met.map(h=>h.name).join(" and ")} meet the ≥90% benchmark while ${notMet.map(h=>h.name).join(" and ")} remain${notMet.length===1?"s":""} below threshold`;
+      else s+=`, with no values currently meeting the ≥90% RTS benchmark`;
+      const improved=hopVals.filter(h=>h.prev&&n(h.cur)>n(h.prev));
+      const regressed=hopVals.filter(h=>h.prev&&n(h.cur)<n(h.prev));
+      if(regressed.length>0) s+=`; regression noted in ${regressed.map(h=>`${h.name} (${h.cur}% from ${h.prev}%)`).join(" and ")}`;
+      else if(improved.length>0) s+=`; improvement noted in ${improved.map(h=>h.name).join(" and ")} since last session`;
+      sentences.push(s+".");
+    }
+
+    // ── PROs ──
+    const prosParts=[];
+    if(hasVal(d.iHOT)){const v=n(d.iHOT); prosParts.push(`iHOT-33 score ${d.iHOT}/100 (${v>=70?"meets ≥70 acceptable function threshold":v>=50?"moderate dysfunction":"significant dysfunction — <50"})`);}
+    if(hasVal(d.hosSport)){const v=n(d.hosSport); prosParts.push(`HOS-Sport ${d.hosSport}% (${v>=74?"meets ≥74% RTS threshold":v>=60?"approaching threshold":"below threshold"})`);}
+    if(hasVal(d.tampa)){const v=n(d.tampa); prosParts.push(`Tampa Scale of Kinesiophobia ${d.tampa} (${v<=17?"acceptable fear levels for RTS":v<=22?"mild kinesiophobia":"elevated kinesiophobia — psychological readiness intervention warranted"})`);}
+    if(prosParts.length>0) sentences.push(`Patient-reported outcomes: ${prosParts.join("; ")}.`);
+
+    // ── Overall trajectory ──
+    const indicators=[];
+    if(cur.dynamoAvgLSI) indicators.push({met:n(cur.dynamoAvgLSI)>=90,label:"hip strength symmetry"});
+    if(hopVals.length>0) indicators.push({met:hopVals.every(h=>n(h.cur)>=90),label:"functional hop testing"});
+    if(cur.imtpPFAsym!==null) indicators.push({met:n(cur.imtpPFAsym)<=10,label:"bilateral force production"});
+    if(hasVal(d.hosSport)) indicators.push({met:n(d.hosSport)>=74,label:"patient-reported function"});
+    if(indicators.length>0){
+      const metCount=indicators.filter(r=>r.met).length;
+      const notMetLabels=indicators.filter(r=>!r.met).map(r=>r.label);
+      let traj="";
+      if(metCount===indicators.length) traj="Overall, the patient demonstrates favorable progress across all assessed return-to-sport domains; continued sport-specific loading is appropriate";
+      else if(metCount>=indicators.length/2) traj=`Overall trajectory is positive, though ${notMetLabels.join(" and ")} remain${notMetLabels.length===1?"s":""} below RTS threshold — targeted intervention is indicated`;
+      else traj=`Patient continues to demonstrate meaningful deficits in ${notMetLabels.join(", ")}; return-to-sport clearance is not yet appropriate and treatment should emphasize resolution of these criteria`;
+      sentences.push(traj+".");
+    }
+
+    setParagraph(sentences.join(" "));
+  };
+
+  const copyPara=()=>{
+    navigator.clipboard?.writeText(paragraph)
+      .then(()=>{setCopiedPara(true);setTimeout(()=>setCopiedPara(false),2500);})
+      .catch(()=>{
+        try{
+          const ta=document.createElement("textarea"); ta.value=paragraph;
+          ta.style.cssText="position:fixed;opacity:0;top:0;left:0";
+          document.body.appendChild(ta); ta.focus(); ta.select();
+          document.execCommand("copy"); document.body.removeChild(ta);
+          setCopiedPara(true); setTimeout(()=>setCopiedPara(false),2500);
+        }catch(e2){}
+      });
+  };
 
   const getColor=(row,val)=>{ if(val==null||val==="") return WHITE; const n=parseFloat(val); if(isNaN(n)) return WHITE; if(["abdLSI","addLSI","erLSI","irLSI","dynamoAvgLSI","hopSingle","hopTriple","hopCross","hopTimed"].includes(row.key)) return lsiColor(n); if(["imtpPFAsym","imtpTPFAsym","cmjEccAsym","cmjConcAsym","cmjCoV","slForceAsym","slTTSAsym"].includes(row.key)) return asymColor(n); return WHITE; };
 
@@ -1005,7 +1149,7 @@ function Tab2({ currentData:d, sessions, setSessions, onAddSession }) {
       <div style={{ background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,overflow:"hidden",marginBottom:20 }}>
         <div style={{ padding:"12px 20px",background:"#161616",borderBottom:`1px solid ${BORDER}`,display:"flex",alignItems:"center",gap:10 }}>
           <div style={{ width:3,height:18,borderRadius:2,background:LIME }}/>
-          <span style={{ fontSize:11,fontWeight:800,letterSpacing:"0.18em",color:"#888",textTransform:"uppercase" }}>Session Timeline</span>
+          <span style={{ fontSize:11,fontWeight:800,letterSpacing:"0.18em",color:LIME,textTransform:"uppercase" }}>Session Timeline</span>
           {!hasSessions&&<span style={{ fontSize:11,color:MUTED,marginLeft:8 }}>— Load PDFs to enable comparison</span>}
         </div>
         <div style={{ overflowX:"auto",WebkitOverflowScrolling:"touch" }}>
@@ -1062,6 +1206,29 @@ function Tab2({ currentData:d, sessions, setSessions, onAddSession }) {
           </div>
         </div>
       </div>
+
+      {/* ── Progress Note Generator ── */}
+      <Card title="Progress Note Generator" accent>
+        <div style={{ fontSize:12,color:MUTED,marginBottom:14,lineHeight:1.6 }}>
+          Generates a structured clinical progress note from all current testing data{hasSessions?", with direct comparison against the most recent previous session":""}.  Benchmarks are evaluated automatically — only sections with entered data appear.
+        </div>
+        <button onClick={generateParagraph} style={{ padding:"12px 32px",borderRadius:10,fontSize:12,fontWeight:800,letterSpacing:"0.1em",textTransform:"uppercase",cursor:"pointer",background:LIME,color:BLACK,border:"none",marginBottom:14 }}>
+          Generate Progress Note
+        </button>
+        {paragraph&&(
+          <div style={{ background:BLACK,borderRadius:10,border:`1px solid ${LIME}44`,overflow:"hidden" }}>
+            <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 16px",background:LIME+"12",borderBottom:`1px solid ${LIME}22` }}>
+              <span style={{ fontSize:10,fontWeight:800,color:LIME,letterSpacing:"0.15em",textTransform:"uppercase" }}>
+                Clinical Progress Note{hasSessions?" — with session comparison":" — current session only"}
+              </span>
+              <button onClick={copyPara} style={{ padding:"6px 16px",borderRadius:6,fontSize:11,fontWeight:800,cursor:"pointer",background:copiedPara?"#15803d":LIME,color:BLACK,border:"none" }}>
+                {copiedPara?"✓ Copied!":"Copy"}
+              </button>
+            </div>
+            <div style={{ padding:20,color:"#d4faa6",fontSize:13,lineHeight:2.0,fontFamily:"inherit" }}>{paragraph}</div>
+          </div>
+        )}
+      </Card>
     </div>
   );
 }
@@ -1131,6 +1298,15 @@ async function generateSessionPDF(data, mode="download") {
   const LGRAY=rgb(0.72,0.72,0.72), BORDER_R=rgb(0.18,0.18,0.18), BGRAY=rgb(0.09,0.09,0.09);
   const GOLD_R=rgb(0.98,0.75,0.14), RED_R=rgb(0.97,0.44,0.44);
 
+  // ── TRM SVG Logo (viewBox 0 0 867 352) ──
+  // Y-flip transforms SVG coords (y↓) to PDF coords (y↑)
+  const TRM_SVG_D="M541.00,4.00 L495.00,278.50 L546.00,346.50 L561.50,345.50 L593.00,144.50 L650.00,346.50 L697.50,345.50 L785.50,144.50 L786.00,348.50 L863.50,348.50 L859.50,4.00 L776.00,5.00 L685.50,202.00 L623.50,4.00 Z M270.00,4.00 L243.00,348.50 L321.50,347.50 L332.00,212.50 L426.00,348.50 L525.50,348.50 L419.50,207.50 L458.50,185.50 L476.50,166.50 L488.50,145.50 L496.50,115.50 L497.50,84.00 L492.50,61.00 L482.50,42.00 L456.50,19.00 L424.50,7.00 L396.50,4.00 Z M344.00,66.50 L371.50,66.50 L372.00,67.50 L379.50,67.50 L380.00,68.50 L383.50,68.50 L384.00,69.50 L388.50,69.50 L389.00,70.50 L391.50,70.50 L394.00,72.50 L396.50,72.50 L397.00,73.50 L398.50,73.50 L400.00,75.50 L401.50,75.50 L408.00,82.00 L408.00,83.50 L409.00,84.00 L409.00,85.50 L410.00,86.00 L410.00,87.50 L411.00,88.00 L411.00,89.50 L413.00,92.00 L413.00,95.50 L414.00,96.00 L414.00,101.50 L415.00,102.00 L415.00,110.50 L414.00,111.00 L414.00,119.50 L413.00,120.00 L413.00,123.50 L412.00,124.00 L412.00,126.50 L411.00,127.00 L411.00,129.50 L410.00,130.00 L409.00,133.50 L407.00,135.00 L407.00,136.50 L405.00,138.00 L405.00,139.50 L396.50,148.00 L395.00,148.00 L394.50,149.00 L393.00,149.00 L392.50,150.00 L391.00,150.00 L388.50,152.00 L383.00,153.00 L382.50,154.00 L379.00,154.00 L378.50,155.00 L375.00,155.00 L374.50,156.00 L369.00,156.00 L368.50,157.00 L337.00,157.00 L336.50,156.50 L336.50,145.00 L337.50,144.50 L337.50,132.00 L338.50,131.50 L338.50,119.00 L339.50,118.50 L339.50,106.00 L340.50,105.50 L340.50,94.00 L341.50,93.50 L341.50,81.00 L342.50,80.50 L342.50,68.00 Z M9.00,4.00 L4.00,72.50 L85.00,73.00 L64.00,348.50 L141.50,348.50 L163.50,73.00 L245.50,72.50 L250.50,4.00 Z";
+  const trmPdfPath=TRM_SVG_D.replace(/(-?\d+\.?\d*),(-?\d+\.?\d*)/g,(_,x,y)=>`${x},${(352-parseFloat(y)).toFixed(2)}`);
+  const logoScale=22/352;   // ~22pt tall header logo
+  const ftrScale=11/352;    // ~11pt tall footer logo
+  const logoW=867*logoScale;   // ~54 pts wide
+  const ftrLogoW=867*ftrScale; // ~27 pts wide
+
   // ── ASCII-safe status helpers ──
   const lsiStatus = v => {
     const n = parseFloat(v);
@@ -1154,8 +1330,9 @@ async function generateSessionPDF(data, mode="download") {
     page=doc.addPage([width,height]); pageCount++;
     page.drawRectangle({x:0,y:height-36,width,height:36,color:rgb(0.07,0.07,0.07)});
     page.drawRectangle({x:0,y:height-36,width,height:2,color:LIME_R});
-    page.drawText("TRM",{x:L,y:height-24,size:14,font:fontBold,color:LIME_R});
-    page.drawText(sanitizePdf("Hip Testing & Outcome Measures"),{x:L+35,y:height-22,size:8.5,font:fontBold,color:LGRAY});
+    page.drawSvgPath(trmPdfPath,{x:L-4*logoScale,y:height-29,scale:logoScale,color:rgb(1,1,1)});
+    page.drawRectangle({x:L+logoW+8,y:height-30,width:0.75,height:20,color:rgb(0.2,0.2,0.2)});
+    page.drawText(sanitizePdf("Hip Testing & Outcome Measures"),{x:L+logoW+16,y:height-22,size:8.5,font:fontBold,color:LGRAY});
     const ptCont=`${data.patient.date||""}${data.patient.weeksPostOp?"  |  Wk "+data.patient.weeksPostOp:""}${data.patient.involvedSide?"  |  "+data.patient.involvedSide+" side":""}`;
     if(ptCont.trim()) page.drawText(sanitizePdf(ptCont.trim()),{x:R_edge-font.widthOfTextAtSize(ptCont.trim(),7),y:height-22,size:7,font,color:GRAY});
     y=height-52;
@@ -1322,7 +1499,8 @@ async function generateSessionPDF(data, mode="download") {
 
   page.drawRectangle({x:0,y:0,width,height:30,color:rgb(0.07,0.07,0.07)});
   page.drawRectangle({x:0,y:26,width,height:1.5,color:LIME_R});
-  page.drawText("TRM  |  Hip Testing & Outcome Measures",{x:L,y:8,size:6.5,font,color:GRAY});
+  page.drawSvgPath(trmPdfPath,{x:L-4*ftrScale,y:8,scale:ftrScale,color:rgb(0.45,0.45,0.45)});
+  page.drawText(sanitizePdf("Hip Testing & Outcome Measures"),{x:L+ftrLogoW+8,y:8,size:6.5,font,color:GRAY});
   page.drawText(`Page ${pageCount} of ${pageCount}`,{x:R_edge-font.widthOfTextAtSize(`Page ${pageCount} of ${pageCount}`,6.5),y:8,size:6.5,font,color:GRAY});
 
   const sessionJson=JSON.stringify(data);
@@ -1428,6 +1606,45 @@ export default function App() {
   const [storageRestored, setStorageRestored] = useState(false);
   const fileInputRef    = useRef(null);
   const compareInputRef = useRef(null);
+
+  // ── SIDE NAV SECTIONS ──────────────────────────────────────────────────────
+  const sideNavSections = [
+    { key:"pt",   label:"PT",   ids:["patient"] },
+    { key:"rom",  label:"ROM",  ids:["rom"] },
+    { key:"str",  label:"STR",  ids:["dynamo","imtp"] },
+    { key:"fp",   label:"FP",   ids:["cmj","sllah"] },
+    { key:"hop",  label:"HOP",  ids:["hops"] },
+    { key:"pro",  label:"PRO",  ids:["agility","pro"] },
+  ];
+  const [activeSection, setActiveSection] = useState("pt");
+
+  const scrollToSection = (ids) => {
+    const el = document.getElementById(ids[0]);
+    if (el) el.scrollIntoView({ behavior:"smooth", block:"center" });
+  };
+
+  useEffect(() => {
+    if (activeTab !== 0) return;
+    const allIds = sideNavSections.flatMap(s => s.ids);
+    const observers = [];
+    const visible = new Set();
+    const update = () => {
+      for (const sec of sideNavSections) {
+        if (sec.ids.some(id => visible.has(id))) { setActiveSection(sec.key); return; }
+      }
+    };
+    allIds.forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const obs = new IntersectionObserver(entries => {
+        entries.forEach(e => { e.isIntersecting ? visible.add(id) : visible.delete(id); });
+        update();
+      }, { threshold: 0.15 });
+      obs.observe(el);
+      observers.push(obs);
+    });
+    return () => observers.forEach(o => o.disconnect());
+  }, [activeTab]);
 
   const tabs=[
     {label:"Testing",    sub:"ROM / Strength / Force Plate / Hops"},
@@ -1577,17 +1794,59 @@ export default function App() {
         <span style={{ color:MUTED,fontSize:11,marginLeft:10 }}>Hip Testing & Outcome Measures — Not a substitute for clinical judgment</span>
       </div>
 
+      {/* Desktop side nav */}
+      {activeTab === 0 && (
+        <nav className="trm-sidenav">
+          {sideNavSections.map(sec => (
+            <div key={sec.key}
+              className={`trm-sidenav-item ${activeSection === sec.key ? "active" : ""}`}
+              onClick={() => { scrollToSection(sec.ids); setActiveSection(sec.key); }}>
+              {sec.label}
+            </div>
+          ))}
+        </nav>
+      )}
+
+      {/* Mobile chip bar */}
+      {activeTab === 0 && (
+        <div className="trm-mobile-nav">
+          {sideNavSections.map(s => {
+            const active = s.key === activeSection;
+            return (
+              <button key={s.key}
+                onClick={() => { scrollToSection(s.ids); setActiveSection(s.key); }}
+                style={{
+                  flex:1, height:44, borderRadius:8,
+                  border: active ? "none" : "1px solid #2a2a2a",
+                  background: active ? LIME : "#181818",
+                  color: active ? BLACK : "#555",
+                  fontSize:10, fontWeight:800, letterSpacing:"0.08em",
+                  textTransform:"uppercase", cursor:"pointer",
+                  transition:"background 0.15s,color 0.15s", padding:0,
+                }}>
+                {s.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {/* FAB */}
       <div className="trm-fab" style={{ position:"fixed",bottom:24,right:24,zIndex:200,display:"flex",alignItems:"center",gap:8 }}>
-        <div style={{ display:"flex",alignItems:"stretch",border:`1px solid ${BORDER}55`,borderRadius:7,overflow:"hidden",boxShadow:"0 1px 6px rgba(0,0,0,0.3)" }}>
-          <button onClick={()=>setNewPtModal(true)} style={{ padding:"7px 9px",background:"rgba(248,113,113,0.04)",color:RED_BAD+"99",border:"none",cursor:"pointer",fontSize:9,fontWeight:800,letterSpacing:"0.07em",textTransform:"uppercase" }}>Reset</button>
-          <div style={{ width:1,background:BORDER+"66",flexShrink:0 }}/>
-          <button onClick={()=>fileInputRef.current.click()} style={{ padding:"7px 9px",background:"rgba(255,255,255,0.03)",color:"#666",border:"none",cursor:"pointer",fontSize:9,fontWeight:800,letterSpacing:"0.07em",textTransform:"uppercase" }}>Load</button>
+        <div style={{ display:"flex",alignItems:"stretch",border:"1px solid rgba(255,255,255,0.15)",borderRadius:8,overflow:"hidden",background:"rgba(255,255,255,0.05)",boxShadow:"0 2px 10px rgba(0,0,0,0.5)" }}>
+          <button onClick={()=>setNewPtModal(true)} style={{ padding:"8px 12px",background:"rgba(248,113,113,0.09)",color:"rgba(248,113,113,0.85)",border:"none",cursor:"pointer",fontSize:9,fontWeight:800,letterSpacing:"0.07em",textTransform:"uppercase" }}>Reset</button>
+          <div style={{ width:1,background:"rgba(255,255,255,0.12)",flexShrink:0 }}/>
+          <button onClick={()=>fileInputRef.current.click()} style={{ padding:"8px 12px",background:"transparent",color:"rgba(255,255,255,0.55)",border:"none",cursor:"pointer",fontSize:9,fontWeight:800,letterSpacing:"0.07em",textTransform:"uppercase" }}>Load</button>
         </div>
-        <div style={{ display:"flex",alignItems:"stretch",border:`1px solid ${LIME}28`,borderRadius:7,overflow:"hidden",boxShadow:`0 1px 6px ${LIME}0a`,opacity:saving?0.5:1 }}>
-          <button onClick={handleSavePDF} disabled={saving} style={{ padding:"7px 11px",background:LIME+"0c",color:LIME+"cc",border:"none",cursor:saving?"default":"pointer",fontSize:9,fontWeight:800,letterSpacing:"0.07em",textTransform:"uppercase" }}>{saving?"Saving...":"Save PDF"}</button>
-          <div style={{ width:1,background:LIME+"22",flexShrink:0 }}/>
-          <button onClick={handleAirDrop} disabled={saving} title="Share / AirDrop" style={{ padding:"7px 9px",background:LIME+"0c",color:LIME+"cc",border:"none",cursor:saving?"default":"pointer",fontSize:12,lineHeight:1,display:"flex",alignItems:"center" }}>Share</button>
+        <div style={{ display:"flex",alignItems:"stretch",border:`1px solid ${LIME}52`,borderRadius:8,overflow:"hidden",background:LIME+"0f",boxShadow:`0 2px 10px ${LIME}14`,opacity:saving?0.5:1 }}>
+          <button onClick={handleSavePDF} disabled={saving} style={{ padding:"8px 14px",background:"transparent",color:LIME+"f2",border:"none",cursor:saving?"default":"pointer",fontSize:9,fontWeight:800,letterSpacing:"0.07em",textTransform:"uppercase" }}>{saving?"Saving…":"Save PDF"}</button>
+          <div style={{ width:1,background:LIME+"40",flexShrink:0 }}/>
+          <button onClick={handleAirDrop} disabled={saving} title="Share / AirDrop" style={{ padding:"6px 10px",background:"transparent",border:"none",cursor:saving?"default":"pointer",display:"flex",alignItems:"center",justifyContent:"center" }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="4" y="10" width="16" height="12" rx="2" fill="rgba(56,189,248,0.15)" stroke="rgba(56,189,248,0.9)" strokeWidth="1.5"/>
+              <path d="M12 2V15M12 2L9 5.5M12 2L15 5.5" stroke="rgba(56,189,248,0.9)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
         </div>
       </div>
     </div>
