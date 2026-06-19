@@ -96,16 +96,16 @@ function BackButton() {
         @media (max-width: 700px) {
           .trm-back {
             top: auto;
-            bottom: 20px; left: 14px;
+            bottom: 24px; left: 14px;
             background: rgba(255,255,255,0.03);
             border: 1px solid #2a2a2a88;
             border-radius: 7px;
             color: #666;
-            padding: 7px 10px;
+            padding: 6px 10px;
             font-weight: 800;
-            font-size: 9px;
+            font-size: 10px;
             letter-spacing: 0.07em;
-            box-shadow: 0 1px 6px rgba(0,0,0,0.3);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
           }
           .trm-back:hover { border-color: #2a2a2a88; }
           .trm-back svg { width: 10px; height: 10px; }
