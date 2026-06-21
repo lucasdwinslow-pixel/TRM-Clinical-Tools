@@ -38,7 +38,7 @@ if (typeof document !== "undefined" && !document.getElementById("trm-elbow-style
   s.id = "trm-elbow-styles";
   s.textContent = `
     html, body { overscroll-behavior-y: none; }
-    .trm-e-sidenav { width: 190px; flex-shrink: 0; position: sticky; top: 108px; max-height: calc(100vh - 125px); overflow-y: auto; margin-right: 20px; align-self: flex-start; }
+    .trm-e-sidenav { display: none !important; }
     .trm-e-sidenav::-webkit-scrollbar { width: 3px; }
     .trm-e-sidenav::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 2px; }
     .trm-e-content { flex: 1; min-width: 0; }
