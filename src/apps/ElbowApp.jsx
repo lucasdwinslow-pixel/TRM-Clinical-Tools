@@ -42,21 +42,9 @@ if (typeof document !== "undefined" && !document.getElementById("trm-elbow-style
     .trm-e-sidenav::-webkit-scrollbar { width: 3px; }
     .trm-e-sidenav::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 2px; }
     .trm-e-content { flex: 1; min-width: 0; }
-    .trm-e-mobilenav {
-      display: none;
-      position: fixed; bottom: 0; left: 0; right: 0;
-      z-index: 150;
-      background: #0f0f0f;
-      border-top: 1px solid rgba(184,255,87,0.2);
-      flex-direction: row;
-      align-items: center;
-      gap: 6px;
-      padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
-    }
     @media (max-width: 700px) {
       .trm-e-sidenav { display: none !important; }
-      .trm-e-mobilenav { display: flex !important; }
-      .trm-e-main-pad { padding-bottom: 80px !important; }
+      .trm-e-main-pad { padding-bottom: 84px !important; }
       .trm-e-r2, .trm-e-r3, .trm-e-r4 { grid-template-columns: 1fr !important; }
       .trm-e-r2-persist { grid-template-columns: 1fr 1fr !important; }
       .trm-e-card-body { padding: 14px !important; }
@@ -274,6 +262,16 @@ const SECTION_GROUPS = [
   { id:"sec-strength",   label:"Strength",   short:"Strength"   },
   { id:"sec-functional", label:"Functional", short:"Functional" },
   { id:"sec-note",       label:"Note",       short:"Note"       },
+];
+
+// ── Mobile section nav — canonical (matches trm-mobile-nav skill) ─────────────
+const SECTION_NAV = [
+  { key: "sec-patient",    label: "Patient",  ids: ["sec-patient"]    },
+  { key: "sec-subjective", label: "Subj",     ids: ["sec-subjective"] },
+  { key: "sec-rom",        label: "ROM",      ids: ["sec-rom"]        },
+  { key: "sec-strength",   label: "Strength", ids: ["sec-strength"]   },
+  { key: "sec-functional", label: "Function", ids: ["sec-functional"] },
+  { key: "sec-note",       label: "Note",     ids: ["sec-note"]       },
 ];
 
 function sectionHasData(group, d) {
@@ -956,18 +954,46 @@ function Tab1({ data:d, setData:setD }) {
 
   const [activeCard, setActiveCard] = useState("patient");
   const [noteCopied, setNoteCopied] = useState(false);
-  const [activeSection, setActiveSection] = useState("sec-patient");
+  const [activeSection, setActiveSection] = useState(SECTION_NAV[0].key);
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 700);
+  const navLockRef = useRef(null);
 
-  const scrollToSection = secId => {
-    setActiveSection(secId);
-    const el=document.getElementById(secId); if(el) el.scrollIntoView({behavior:"smooth",block:"start"});
-  };
   useEffect(() => {
-    const ids=SECTION_GROUPS.map(g=>g.id);
-    const observer=new IntersectionObserver(entries=>{ const visible=entries.filter(e=>e.isIntersecting).sort((a,b)=>a.boundingClientRect.top-b.boundingClientRect.top); if(visible.length>0) setActiveSection(visible[0].target.id); },{rootMargin:"-10% 0px -60% 0px",threshold:0});
-    ids.forEach(id=>{ const el=document.getElementById(id); if(el) observer.observe(el); });
-    return ()=>observer.disconnect();
-  },[]);
+    const handler = () => setIsMobile(window.innerWidth < 700);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, []);
+
+  useEffect(() => {
+    if (!isMobile) return;
+    const visible = new Set();
+    const update = () => {
+      if (navLockRef.current) return; // tap-driven scroll in progress — don't override
+      for (const sec of SECTION_NAV) {
+        if (sec.ids.some(id => visible.has(id))) { setActiveSection(sec.key); return; }
+      }
+    };
+    const observers = [];
+    SECTION_NAV.flatMap(s => s.ids).forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const obs = new IntersectionObserver(entries => {
+        entries.forEach(e => e.isIntersecting ? visible.add(id) : visible.delete(id));
+        update();
+      }, { threshold: 0.2 });
+      obs.observe(el);
+      observers.push(obs);
+    });
+    return () => observers.forEach(o => o.disconnect());
+  }, [isMobile]);
+
+  const scrollTo = (ids) => {
+    const el = document.getElementById(ids[0]);
+    if (!el) return;
+    if (navLockRef.current) clearTimeout(navLockRef.current);
+    navLockRef.current = setTimeout(() => { navLockRef.current = null; }, 700);
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   const inv   = d.patient.involvedSide;
   const invR  = inv === "Right";
@@ -1057,29 +1083,6 @@ function Tab1({ data:d, setData:setD }) {
 
   return (
     <div>
-      {/* Mobile bottom nav chip bar */}
-      <div className="trm-e-mobilenav">
-        {SECTION_GROUPS.map(g => {
-          const active = activeSection === g.id;
-          return (
-            <button key={g.id} onClick={() => scrollToSection(g.id)} style={{
-              flex: 1,
-              height: 44,
-              borderRadius: 8,
-              border: active ? "none" : `1px solid ${BORDER}`,
-              background: active ? LIME : "#181818",
-              color: active ? BLACK : MUTED,
-              fontSize: 10,
-              fontWeight: 800,
-              letterSpacing: "0.08em",
-              textTransform: "uppercase",
-              cursor: "pointer",
-              transition: "background 0.15s, color 0.15s",
-              padding: 0,
-            }}>{g.short}</button>
-          );
-        })}
-      </div>
 
       <div style={{ display:"flex", alignItems:"flex-start", gap:0 }}>
         {/* Sidebar */}
@@ -1087,7 +1090,7 @@ function Tab1({ data:d, setData:setD }) {
           <div style={{ background:"#141414", border:`1px solid ${BORDER}`, borderRadius:12, overflow:"hidden", padding:"6px 0" }}>
             {SECTION_GROUPS.map((g,i) => {
               const active=activeSection===g.id; const filled=sectionHasData(g,d);
-              return <button key={g.id} onClick={()=>scrollToSection(g.id)} style={{ width:"100%", display:"flex", alignItems:"center", gap:10, padding:"9px 14px", background:active?LIME+"14":"transparent", border:"none", borderLeft:`3px solid ${active?LIME:"transparent"}`, cursor:"pointer", textAlign:"left", borderBottom:i<SECTION_GROUPS.length-1?`1px solid ${BORDER}`:"none" }}><span style={{ flex:1, fontSize:11, fontWeight:active?800:600, color:active?LIME:"#888", letterSpacing:"0.07em", textTransform:"uppercase" }}>{g.label}</span>{filled&&<div style={{ width:6, height:6, borderRadius:"50%", background:active?LIME:LIME_DIM, flexShrink:0 }} />}</button>;
+              return <button key={g.id} onClick={()=>{ scrollTo([g.id]); setActiveSection(g.id); }} style={{ width:"100%", display:"flex", alignItems:"center", gap:10, padding:"9px 14px", background:active?LIME+"14":"transparent", border:"none", borderLeft:`3px solid ${active?LIME:"transparent"}`, cursor:"pointer", textAlign:"left", borderBottom:i<SECTION_GROUPS.length-1?`1px solid ${BORDER}`:"none" }}><span style={{ flex:1, fontSize:11, fontWeight:active?800:600, color:active?LIME:"#888", letterSpacing:"0.07em", textTransform:"uppercase" }}>{g.label}</span>{filled&&<div style={{ width:6, height:6, borderRadius:"50%", background:active?LIME:LIME_DIM, flexShrink:0 }} />}</button>;
             })}
           </div>
         </div>
@@ -1482,6 +1485,77 @@ function Tab1({ data:d, setData:setD }) {
           )}
         </div>
       </div>
+
+      {/* ── MOBILE SECTION NAV (Testing tab) ── */}
+      {isMobile && (() => {
+        const idx  = SECTION_NAV.findIndex(s => s.key === activeSection);
+        const cur  = SECTION_NAV[idx] ?? SECTION_NAV[0];
+        const prev = SECTION_NAV[idx - 1];
+        const next = SECTION_NAV[idx + 1];
+        return (
+          <div style={{
+            position: "fixed", bottom: 0, left: 0, right: 0,
+            zIndex: 150, background: "#0f0f0f",
+            borderTop: `1px solid ${LIME}33`,
+            paddingBottom: "env(safe-area-inset-bottom)",
+          }}>
+            {/* Section dots */}
+            <div style={{ display: "flex", justifyContent: "center", gap: 5, paddingTop: 8, paddingBottom: 4 }}>
+              {SECTION_NAV.map(s => (
+                <button key={s.key} onClick={() => { scrollTo(s.ids); setActiveSection(s.key); }} style={{
+                  width: s.key === activeSection ? 22 : 7, height: 7, borderRadius: 4,
+                  padding: 0, border: "none", flexShrink: 0,
+                  background: s.key === activeSection ? LIME : "#2e2e2e",
+                  cursor: "pointer", transition: "width 0.2s, background 0.2s",
+                }} />
+              ))}
+            </div>
+            {/* Prev / label / Next */}
+            <div style={{ display: "flex", alignItems: "stretch", gap: 6, padding: "4px 12px 10px" }}>
+              <button
+                onClick={() => { if (prev) { scrollTo(prev.ids); setActiveSection(prev.key); } }}
+                disabled={!prev}
+                style={{
+                  flex: 1, display: "flex", alignItems: "center", gap: 8,
+                  padding: "8px 10px", borderRadius: 10,
+                  border: `1px solid ${prev ? BORDER : "#181818"}`,
+                  background: prev ? "#1a1a1a" : "#0a0a0a",
+                  cursor: prev ? "pointer" : "default", textAlign: "left", minWidth: 0,
+                }}>
+                <span style={{ fontSize: 18, color: prev ? "#666" : "#222", lineHeight: 1, flexShrink: 0 }}>‹</span>
+                {prev && (
+                  <div>
+                    <div style={{ fontSize: 8, color: "#555", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase" }}>Prev</div>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: "#888" }}>{prev.label}</div>
+                  </div>
+                )}
+              </button>
+              <div style={{ flexShrink: 0, textAlign: "center", display: "flex", flexDirection: "column", justifyContent: "center", minWidth: 72 }}>
+                <div style={{ fontSize: 10, fontWeight: 900, color: LIME, letterSpacing: "0.08em", textTransform: "uppercase" }}>{cur.label}</div>
+                <div style={{ fontSize: 8, color: "#666", fontWeight: 700, marginTop: 1 }}>{idx + 1} / {SECTION_NAV.length}</div>
+              </div>
+              <button
+                onClick={() => { if (next) { scrollTo(next.ids); setActiveSection(next.key); } }}
+                disabled={!next}
+                style={{
+                  flex: 1, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8,
+                  padding: "8px 10px", borderRadius: 10,
+                  border: `1px solid ${next ? BORDER : "#181818"}`,
+                  background: next ? "#1a1a1a" : "#0a0a0a",
+                  cursor: next ? "pointer" : "default", textAlign: "right", minWidth: 0,
+                }}>
+                {next && (
+                  <div>
+                    <div style={{ fontSize: 8, color: "#555", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", textAlign: "right" }}>Next</div>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: "#888", textAlign: "right" }}>{next.label}</div>
+                  </div>
+                )}
+                <span style={{ fontSize: 18, color: next ? "#666" : "#222", lineHeight: 1, flexShrink: 0 }}>›</span>
+              </button>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
