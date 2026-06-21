@@ -197,6 +197,7 @@ if (typeof document !== "undefined" && !document.getElementById("trm-mobile-styl
     @media (max-width: 600px) {
       .trm-r2, .trm-r3, .trm-r4 { grid-template-columns: 1fr !important; }
       .trm-r2-persist { grid-template-columns: 1fr 1fr !important; }
+      .vald-grid { grid-template-columns: 1fr 1fr !important; }
       .trm-card-body { padding: 14px !important; }
       .trm-header-subtitle { display: none !important; }
       .trm-tab-sub { display: none !important; }
@@ -527,7 +528,7 @@ function ValdCard({ title, id, fields, values, onChange, highlight, focusable, a
   return (
     <Card title={title} id={id} focusable={focusable} activeCard={activeCard} setActiveCard={setActiveCard}>
       <div style={{ fontSize: 11, color: MUTED, marginBottom: 14 }}>Enter values directly from the Vald ForceDecks report.</div>
-      <div style={{ display: "grid", gridTemplateColumns: `repeat(${columns}, 1fr)`, gap: 10 }}>
+      <div className="vald-grid" style={{ display: "grid", gridTemplateColumns: `repeat(${columns}, 1fr)`, gap: 10 }}>
         {regularFields.map(f => (
           <div key={f.key}>
             <label style={lbl}>{f.label}{f.unit ? ` (${f.unit})` : ""}</label>
@@ -4330,6 +4331,7 @@ export default function App() {
     { key: "bal",   label: "BAL",  ids: ["YBalance", "agility", "pro"] },
   ];
   const [activeSection, setActiveSection] = useState("pt");
+  const navLockRef = useRef(null); // set during a click-driven scroll to mute the observer
 
   // IntersectionObserver to track active section while scrolling
   useEffect(() => {
@@ -4338,6 +4340,7 @@ export default function App() {
     const observers = [];
     const visible = new Set();
     const update = () => {
+      if (navLockRef.current) return; // a chip click is driving the scroll — don't override it
       for (const sec of sideNavSections) {
         if (sec.ids.some(id => visible.has(id))) { setActiveSection(sec.key); return; }
       }
@@ -4357,7 +4360,11 @@ export default function App() {
 
   const scrollToSection = (ids) => {
     const el = document.getElementById(ids[0]);
-    if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+    if (!el) return;
+    // Mute the observer while the smooth scroll plays out, then release.
+    if (navLockRef.current) clearTimeout(navLockRef.current);
+    navLockRef.current = setTimeout(() => { navLockRef.current = null; }, 700);
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
   };
 
   return (
@@ -4435,19 +4442,6 @@ export default function App() {
           </div>
         </div>
       </header>
-
-      {/* ── SIDE NAV — only on Testing tab ── */}
-      {activeTab === 0 && (
-        <nav className="trm-sidenav">
-          {sideNavSections.map(sec => (
-            <div key={sec.key}
-              className={`trm-sidenav-item ${activeSection === sec.key ? "active" : ""}`}
-              onClick={() => scrollToSection(sec.ids)}>
-              {sec.label}
-            </div>
-          ))}
-        </nav>
-      )}
 
       {/* ── MOBILE BOTTOM NAV — Testing tab only ── */}
       {activeTab === 0 && (() => {
