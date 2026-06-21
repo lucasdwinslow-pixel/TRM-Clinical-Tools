@@ -41,10 +41,8 @@ if (typeof document !== "undefined" && !document.getElementById("trm-shoulder-st
     .trm-sidenav::-webkit-scrollbar { width: 3px; }
     .trm-sidenav::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 2px; }
     .trm-content { flex: 1; min-width: 0; }
-    .trm-mobilenav { display: none; }
     @media (max-width: 700px) {
       .trm-sidenav { display: none !important; }
-      .trm-mobilenav { display: flex !important; }
       .trm-r2, .trm-r3, .trm-r4 { grid-template-columns: 1fr !important; }
       .trm-r2-persist { grid-template-columns: 1fr 1fr !important; }
       .trm-card-body { padding: 14px !important; }
@@ -52,7 +50,7 @@ if (typeof document !== "undefined" && !document.getElementById("trm-shoulder-st
       .trm-tab-sub { display: none !important; }
       .trm-tab-btn { padding: 10px 12px !important; }
       .trm-stat-bar { gap: 16px !important; padding: 10px 14px !important; }
-      .trm-fab { bottom: 16px !important; right: 12px !important; gap: 5px !important; }
+      .trm-fab { bottom: 90px !important; right: 12px !important; gap: 5px !important; }
       .trm-fab button { padding: 10px 12px !important; font-size: 11px !important; min-height: 44px; }
       input[type="number"], input[type="text"], select, textarea {
         font-size: 16px !important; min-height: 44px !important;
@@ -923,6 +921,15 @@ const SECTION_GROUPS = [
   { id: "sec-note",       label: "SOAP Note",  short: "Note",       cards: ["notes"] },
 ];
 
+// ── MOBILE SECTION NAV — maps section keys to on-page element IDs ──
+const SECTION_NAV = [
+  { key: "sec-patient",    label: "Patient",    ids: ["sec-patient",    "patient"] },
+  { key: "sec-rom",        label: "ROM",        ids: ["sec-rom",        "rom"] },
+  { key: "sec-strength",   label: "Strength",   ids: ["sec-strength",   "strength"] },
+  { key: "sec-functional", label: "Functional", ids: ["sec-functional", "functional"] },
+  { key: "sec-note",       label: "Note",       ids: ["sec-note",       "pros"] },
+];
+
 function sectionHasData(group, d) {
   const checks = {
     "sec-patient":    () => d.patient?.date || d.patient?.surgeryType || d.bw,
@@ -963,27 +970,55 @@ function Tab1({ data: d, setData: setD }) {
   const erirTarget = isDominant ? 75 : 66;
   const [activeCard, setActiveCard] = useState("patient");
   const [noteCopied, setNoteCopied] = useState(false);
-  const [activeSection, setActiveSection] = useState("sec-patient");
   const [elbowOpen, setElbowOpen] = useState(false);
+
+  // ── Mobile section nav ──
+  const [isMobile, setIsMobile]           = useState(() => window.innerWidth < 700);
+  const [activeSection, setActiveSection]  = useState(SECTION_NAV[0].key);
+  const navLockRef = useRef(null); // set during a tap-driven scroll to mute the observer
+
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < 700);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, []);
+
+  useEffect(() => {
+    if (!isMobile) return;
+    const visible = new Set();
+    const update = () => {
+      if (navLockRef.current) return; // a tap is driving the scroll — don't override it
+      for (const sec of SECTION_NAV) {
+        if (sec.ids.some(id => visible.has(id))) { setActiveSection(sec.key); return; }
+      }
+    };
+    const observers = [];
+    SECTION_NAV.flatMap(s => s.ids).forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const obs = new IntersectionObserver(entries => {
+        entries.forEach(e => e.isIntersecting ? visible.add(id) : visible.delete(id));
+        update();
+      }, { threshold: 0.2 });
+      obs.observe(el);
+      observers.push(obs);
+    });
+    return () => observers.forEach(o => o.disconnect());
+  }, [isMobile]);
+
+  const scrollTo = (ids) => {
+    const el = document.getElementById(ids[0]);
+    if (!el) return;
+    if (navLockRef.current) clearTimeout(navLockRef.current);
+    navLockRef.current = setTimeout(() => { navLockRef.current = null; }, 700);
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   const scrollToSection = (secId) => {
     setActiveSection(secId);
-    const el = document.getElementById(secId);
-    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    const sec = SECTION_NAV.find(s => s.key === secId);
+    scrollTo(sec ? sec.ids : [secId]);
   };
-
-  useEffect(() => {
-    const ids = SECTION_GROUPS.map(g => g.id);
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries.filter(e => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
-        if (visible.length > 0) setActiveSection(visible[0].target.id);
-      },
-      { rootMargin: "-10% 0px -60% 0px", threshold: 0 }
-    );
-    ids.forEach(id => { const el = document.getElementById(id); if (el) observer.observe(el); });
-    return () => observer.disconnect();
-  }, []);
 
   const erRnm   = calcTorqueNm(d.erForceR, d.leverArm);
   const erLnm   = calcTorqueNm(d.erForceL, d.leverArm);
@@ -1111,19 +1146,6 @@ function Tab1({ data: d, setData: setD }) {
 
   return (
     <div>
-      <div className="trm-mobilenav" style={{ display: "none", overflowX: "auto", gap: 6, marginBottom: 16, paddingBottom: 4, scrollbarWidth: "none", position: "sticky", top: 104, zIndex: 50, background: "#0a0a0a", paddingTop: 10 }}>
-        {SECTION_GROUPS.map(g => {
-          const active = activeSection === g.id;
-          const filled = sectionHasData(g, d);
-          return (
-            <button key={g.id} onClick={() => scrollToSection(g.id)} style={{ flexShrink: 0, display: "flex", alignItems: "center", padding: "6px 14px", borderRadius: 20, background: active ? LIME+"22" : "#1a1a1a", border: `1.5px solid ${active ? LIME : BORDER}`, cursor: "pointer", whiteSpace: "nowrap", position: "relative" }}>
-              <span style={{ fontSize: 11, fontWeight: 800, color: active ? LIME : "#777", letterSpacing: "0.07em", textTransform: "uppercase" }}>{g.short}</span>
-              {filled && <div style={{ position: "absolute", top: 3, right: 5, width: 5, height: 5, borderRadius: "50%", background: LIME }} />}
-            </button>
-          );
-        })}
-      </div>
-
       <div style={{ display: "flex", alignItems: "flex-start", gap: 0 }}>
         <div className="trm-sidenav">
           <div style={{ background: "#141414", border: `1px solid ${BORDER}`, borderRadius: 12, overflow: "hidden", padding: "6px 0" }}>
@@ -1696,8 +1718,81 @@ function Tab1({ data: d, setData: setD }) {
               <pre style={{ padding: 20, background: "#0a0a0a", color: "#d4faa6", fontSize: 12, fontFamily: "monospace", lineHeight: 1.8, whiteSpace: "pre-wrap", margin: 0, maxHeight: 500, overflowY: "auto" }}>{d.noteText}</pre>
             </div>
           )}
+          {isMobile && <div style={{ height: 84 }} />}
         </div>
       </div>
+
+      {/* ── MOBILE SECTION NAV (bottom bar) ── */}
+      {isMobile && (() => {
+        const idx  = SECTION_NAV.findIndex(s => s.key === activeSection);
+        const cur  = SECTION_NAV[idx] ?? SECTION_NAV[0];
+        const prev = SECTION_NAV[idx - 1];
+        const next = SECTION_NAV[idx + 1];
+        const NAV_BORDER = "#2a2a2a";
+        return (
+          <div style={{
+            position: "fixed", bottom: 0, left: 0, right: 0,
+            zIndex: 150, background: "#0f0f0f",
+            borderTop: `1px solid ${LIME}33`,
+            paddingBottom: "env(safe-area-inset-bottom)",
+          }}>
+            {/* Section dots */}
+            <div style={{ display: "flex", justifyContent: "center", gap: 5, paddingTop: 8, paddingBottom: 4 }}>
+              {SECTION_NAV.map(s => (
+                <button key={s.key} onClick={() => { scrollTo(s.ids); setActiveSection(s.key); }} style={{
+                  width: s.key === activeSection ? 22 : 7, height: 7, borderRadius: 4,
+                  padding: 0, border: "none", flexShrink: 0,
+                  background: s.key === activeSection ? LIME : "#2e2e2e",
+                  cursor: "pointer", transition: "width 0.2s, background 0.2s",
+                }} />
+              ))}
+            </div>
+            {/* Prev / label / Next */}
+            <div style={{ display: "flex", alignItems: "stretch", gap: 6, padding: "4px 12px 10px" }}>
+              <button
+                onClick={() => { if (prev) { scrollTo(prev.ids); setActiveSection(prev.key); } }}
+                disabled={!prev}
+                style={{
+                  flex: 1, display: "flex", alignItems: "center", gap: 8,
+                  padding: "8px 10px", borderRadius: 10,
+                  border: `1px solid ${prev ? NAV_BORDER : "#181818"}`,
+                  background: prev ? "#1a1a1a" : "#0a0a0a",
+                  cursor: prev ? "pointer" : "default", textAlign: "left", minWidth: 0,
+                }}>
+                <span style={{ fontSize: 18, color: prev ? "#666" : "#222", lineHeight: 1, flexShrink: 0 }}>‹</span>
+                {prev && (
+                  <div>
+                    <div style={{ fontSize: 8, color: "#555", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase" }}>Prev</div>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: "#888" }}>{prev.label}</div>
+                  </div>
+                )}
+              </button>
+              <div style={{ flexShrink: 0, textAlign: "center", display: "flex", flexDirection: "column", justifyContent: "center", minWidth: 72 }}>
+                <div style={{ fontSize: 10, fontWeight: 900, color: LIME, letterSpacing: "0.08em", textTransform: "uppercase" }}>{cur.label}</div>
+                <div style={{ fontSize: 8, color: "#666", fontWeight: 700, marginTop: 1 }}>{idx + 1} / {SECTION_NAV.length}</div>
+              </div>
+              <button
+                onClick={() => { if (next) { scrollTo(next.ids); setActiveSection(next.key); } }}
+                disabled={!next}
+                style={{
+                  flex: 1, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8,
+                  padding: "8px 10px", borderRadius: 10,
+                  border: `1px solid ${next ? NAV_BORDER : "#181818"}`,
+                  background: next ? "#1a1a1a" : "#0a0a0a",
+                  cursor: next ? "pointer" : "default", textAlign: "right", minWidth: 0,
+                }}>
+                {next && (
+                  <div>
+                    <div style={{ fontSize: 8, color: "#555", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", textAlign: "right" }}>Next</div>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: "#888", textAlign: "right" }}>{next.label}</div>
+                  </div>
+                )}
+                <span style={{ fontSize: 18, color: next ? "#666" : "#222", lineHeight: 1, flexShrink: 0 }}>›</span>
+              </button>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
