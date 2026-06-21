@@ -475,6 +475,30 @@ function buildConcussionNote(d) {
   return lines.join("\n").trim();
 }
 
+// ─── TRM SVG LOGO ─────────────────────────────────────────────────────────────
+const TRM_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 867 352" fill="white" role="img" aria-label="TRM"><path fill-rule="evenodd" d="M541.00,4.00 L495.00,278.50 L546.00,346.50 L561.50,345.50 L593.00,144.50 L650.00,346.50 L697.50,345.50 L785.50,144.50 L786.00,348.50 L863.50,348.50 L859.50,4.00 L776.00,5.00 L685.50,202.00 L623.50,4.00 Z M270.00,4.00 L243.00,348.50 L321.50,347.50 L332.00,212.50 L426.00,348.50 L525.50,348.50 L419.50,207.50 L458.50,185.50 L476.50,166.50 L488.50,145.50 L496.50,115.50 L497.50,84.00 L492.50,61.00 L482.50,42.00 L456.50,19.00 L424.50,7.00 L396.50,4.00 Z M344.00,66.50 L371.50,66.50 L372.00,67.50 L379.50,67.50 L380.00,68.50 L383.50,68.50 L384.00,69.50 L388.50,69.50 L389.00,70.50 L391.50,70.50 L394.00,72.50 L396.50,72.50 L397.00,73.50 L398.50,73.50 L400.00,75.50 L401.50,75.50 L408.00,82.00 L408.00,83.50 L409.00,84.00 L409.00,85.50 L410.00,86.00 L410.00,87.50 L411.00,88.00 L411.00,89.50 L413.00,92.00 L413.00,95.50 L414.00,96.00 L414.00,101.50 L415.00,102.00 L415.00,110.50 L414.00,111.00 L414.00,119.50 L413.00,120.00 L413.00,123.50 L412.00,124.00 L412.00,126.50 L411.00,127.00 L411.00,129.50 L410.00,130.00 L409.00,133.50 L407.00,135.00 L407.00,136.50 L405.00,138.00 L405.00,139.50 L396.50,148.00 L395.00,148.00 L394.50,149.00 L393.00,149.00 L392.50,150.00 L391.00,150.00 L388.50,152.00 L383.00,153.00 L382.50,154.00 L379.00,154.00 L378.50,155.00 L375.00,155.00 L374.50,156.00 L369.00,156.00 L368.50,157.00 L337.00,157.00 L336.50,156.50 L336.50,145.00 L337.50,144.50 L337.50,132.00 L338.50,131.50 L338.50,119.00 L339.50,118.50 L339.50,106.00 L340.50,105.50 L340.50,94.00 L341.50,93.50 L341.50,81.00 L342.50,80.50 L342.50,68.00 Z M9.00,4.00 L4.00,72.50 L85.00,73.00 L64.00,348.50 L141.50,348.50 L163.50,73.00 L245.50,72.50 L250.50,4.00 Z"/></svg>`;
+
+async function svgToPngBytes(svgString, targetWidth = 300) {
+  return new Promise((resolve, reject) => {
+    const blob = new Blob([svgString], { type: "image/svg+xml" });
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => {
+      const aspectRatio = img.naturalWidth / img.naturalHeight;
+      const targetHeight = Math.round(targetWidth / aspectRatio);
+      const canvas = document.createElement("canvas");
+      canvas.width = targetWidth;
+      canvas.height = targetHeight;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+      URL.revokeObjectURL(url);
+      canvas.toBlob(b => b.arrayBuffer().then(buf => resolve(new Uint8Array(buf))), "image/png");
+    };
+    img.onerror = reject;
+    img.src = url;
+  });
+}
+
 // ─── PDF SANITIZER ────────────────────────────────────────────────────────────
 function sanitizePdf(str) {
   if (str === null || str === undefined) return "";
@@ -494,6 +518,8 @@ async function saveSessionPDF(data) {
   const doc  = await PDFDocument.create();
   const font = await doc.embedFont(StandardFonts.Helvetica);
   const fontBold = await doc.embedFont(StandardFonts.HelveticaBold);
+  const trmPngBytes = await svgToPngBytes(TRM_SVG, 400);
+  const trmImg = await doc.embedPng(trmPngBytes);
 
   const DARK_R   = rgb(0.04, 0.04, 0.04);
   const LIME_R   = rgb(0.722, 1.0, 0.341);
@@ -521,10 +547,12 @@ async function saveSessionPDF(data) {
   // ── Header bar ──
   page.drawRectangle({ x: 0, y: height - 70, width, height: 70, color: DARK_R });
   page.drawRectangle({ x: 0, y: height - 72, width, height: 2, color: LIME_R });
-  draw("TRM", L, height - 48, 34, fontBold, WHITE_R);
-  page.drawLine({ start: { x: L + 82, y: height - 16 }, end: { x: L + 82, y: height - 62 }, thickness: 0.8, color: rgb(0.28, 0.28, 0.28) });
-  draw("Concussion Testing & mTBI Evaluation", L + 92, height - 34, 10, font, rgb(0.68, 0.68, 0.68));
-  draw("SESSION REPORT", L + 92, height - 52, 8.5, fontBold, LIME_R);
+  const logoH1 = 36, logoW1 = Math.round(logoH1 * (867 / 352));
+  page.drawImage(trmImg, { x: L, y: height - 58, width: logoW1, height: logoH1 });
+  const divX1 = L + logoW1 + 10;
+  page.drawLine({ start: { x: divX1, y: height - 16 }, end: { x: divX1, y: height - 62 }, thickness: 0.8, color: rgb(0.28, 0.28, 0.28) });
+  draw("Concussion Testing & mTBI Evaluation", divX1 + 10, height - 34, 10, font, rgb(0.68, 0.68, 0.68));
+  draw("SESSION REPORT", divX1 + 10, height - 52, 8.5, fontBold, LIME_R);
   const dateStr = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
   draw(dateStr, R - font.widthOfTextAtSize(dateStr, 8), height - 34, 8, font, rgb(0.50, 0.50, 0.50));
   draw("Physician Reference", R - fontBold.widthOfTextAtSize("Physician Reference", 7.5), height - 50, 7.5, fontBold, rgb(0.38, 0.38, 0.38));
@@ -601,9 +629,11 @@ async function saveSessionPDF(data) {
   // Page 2 compact header
   page2.drawRectangle({ x: 0, y: h2 - 32, width: w2, height: 32, color: DARK_R });
   page2.drawRectangle({ x: 0, y: h2 - 34, width: w2, height: 2, color: LIME_R });
-  draw2("TRM", L2, h2 - 22, 14, fontBold, WHITE_R);
-  page2.drawLine({ start: { x: L2 + 38, y: h2 - 8 }, end: { x: L2 + 38, y: h2 - 28 }, thickness: 0.6, color: rgb(0.28, 0.28, 0.28) });
-  draw2("Concussion Evaluation — Documentation Note (Plain Text)", L2 + 46, h2 - 18, 8, font, rgb(0.55, 0.55, 0.55));
+  const logoH2 = 16, logoW2 = Math.round(logoH2 * (867 / 352));
+  page2.drawImage(trmImg, { x: L2, y: h2 - 28, width: logoW2, height: logoH2 });
+  const divX2 = L2 + logoW2 + 8;
+  page2.drawLine({ start: { x: divX2, y: h2 - 8 }, end: { x: divX2, y: h2 - 28 }, thickness: 0.6, color: rgb(0.28, 0.28, 0.28) });
+  draw2("Concussion Evaluation — Documentation Note (Plain Text)", divX2 + 8, h2 - 18, 8, font, rgb(0.55, 0.55, 0.55));
 
   let y2 = h2 - 48;
   const maxLineWidth = R2 - L2;
