@@ -60,10 +60,9 @@ if (typeof document!=="undefined"&&!document.getElementById("trm-hip-styles")) {
     .trm-sidenav-item:hover{color:rgba(255,255,255,0.6)!important}
     .trm-sidenav-item.active{color:#b8ff57!important;border-left-color:#b8ff57!important;text-shadow:0 0 8px rgba(184,255,87,0.5)}
     .trm-mobile-nav{display:none;position:fixed;bottom:0;left:0;right:0;z-index:150;background:#0f0f0f;border-top:1px solid rgba(184,255,87,0.2);flex-direction:row;align-items:center;gap:6px;padding:8px 10px calc(8px + env(safe-area-inset-bottom))}
-    @media(max-width:600px){
+    @media(max-width:700px){
       .trm-sidenav{display:none!important}
-      .trm-mobile-nav{display:flex!important}
-      .trm-main-content{padding-bottom:80px!important}
+      .trm-main-content{padding-bottom:120px!important}
       .trm-r2,.trm-r3,.trm-r4{grid-template-columns:1fr!important}
       .trm-r2-persist{grid-template-columns:1fr 1fr!important}
       .trm-card-body{padding:14px!important}
@@ -71,7 +70,7 @@ if (typeof document!=="undefined"&&!document.getElementById("trm-hip-styles")) {
       .trm-tab-sub{display:none!important}
       .trm-tab-btn{padding:10px 12px!important}
       .trm-stat-bar{gap:16px!important;padding:10px 14px!important}
-      .trm-fab{bottom:72px!important;right:12px!important;gap:5px!important}
+      .trm-fab{bottom:90px!important;right:12px!important;gap:5px!important}
       .trm-fab button{padding:10px 12px!important;font-size:11px!important;min-height:44px;min-width:44px}
       input[type="number"],input[type="text"],select,textarea{font-size:16px!important;min-height:44px!important}
     }
@@ -1294,51 +1293,107 @@ async function generateSessionPDF(data, mode="download") {
   const inv=data.patient.involvedSide, invR=inv==="Right", uninv=invR?"Left":"Right";
   const dyn=data.dynamo||{}, imt=data.imtp||{}, cmj=data.cmj||{}, slh=data.slLandHold||{};
 
-  const LIME_R=rgb(0.722,1.0,0.341), BLACK_R=rgb(0.14,0.14,0.14), GRAY=rgb(0.55,0.55,0.55);
-  const LGRAY=rgb(0.72,0.72,0.72), BORDER_R=rgb(0.18,0.18,0.18), BGRAY=rgb(0.09,0.09,0.09);
-  const GOLD_R=rgb(0.98,0.75,0.14), RED_R=rgb(0.97,0.44,0.44);
+  // ── Color Palette (TRM light dashboard) ──
+  const BLACK_R  = rgb(0.05,0.05,0.05);
+  const WHITE_R  = rgb(1,1,1);
+  const GRAY     = rgb(0.45,0.45,0.45);
+  const LGRAY    = rgb(0.82,0.82,0.82);
+  const BGRAY    = rgb(0.96,0.96,0.96);
+  const DARK_R   = rgb(0.07,0.07,0.07);
+  const LIME_R   = rgb(0.42,0.82,0.12);
+  const LIME_BG  = rgb(0.90,0.98,0.82);
+  const LIME_TXT = rgb(0.18,0.48,0.04);
+  const GOLD_R   = rgb(0.90,0.65,0.08);
+  const GOLD_BG  = rgb(1.0,0.95,0.80);
+  const GOLD_TXT = rgb(0.65,0.42,0.02);
+  const RED_R    = rgb(0.88,0.22,0.22);
+  const RED_BG   = rgb(1.0,0.90,0.90);
+  const RED_TXT  = rgb(0.65,0.10,0.10);
+  const BORDER_R = rgb(0.88,0.88,0.88);
 
-  // ── TRM SVG Logo (viewBox 0 0 867 352) ──
-  // Y-flip transforms SVG coords (y↓) to PDF coords (y↑)
+  const width=612, height=792;
+  const L=48, R_edge=width-48, CW=R_edge-L;
+
+  // ── TRM SVG Logo (viewBox 0 0 867 352), Y-flipped for pdf-lib (y_pdf = 352 - y_svg) ──
   const TRM_SVG_D="M541.00,4.00 L495.00,278.50 L546.00,346.50 L561.50,345.50 L593.00,144.50 L650.00,346.50 L697.50,345.50 L785.50,144.50 L786.00,348.50 L863.50,348.50 L859.50,4.00 L776.00,5.00 L685.50,202.00 L623.50,4.00 Z M270.00,4.00 L243.00,348.50 L321.50,347.50 L332.00,212.50 L426.00,348.50 L525.50,348.50 L419.50,207.50 L458.50,185.50 L476.50,166.50 L488.50,145.50 L496.50,115.50 L497.50,84.00 L492.50,61.00 L482.50,42.00 L456.50,19.00 L424.50,7.00 L396.50,4.00 Z M344.00,66.50 L371.50,66.50 L372.00,67.50 L379.50,67.50 L380.00,68.50 L383.50,68.50 L384.00,69.50 L388.50,69.50 L389.00,70.50 L391.50,70.50 L394.00,72.50 L396.50,72.50 L397.00,73.50 L398.50,73.50 L400.00,75.50 L401.50,75.50 L408.00,82.00 L408.00,83.50 L409.00,84.00 L409.00,85.50 L410.00,86.00 L410.00,87.50 L411.00,88.00 L411.00,89.50 L413.00,92.00 L413.00,95.50 L414.00,96.00 L414.00,101.50 L415.00,102.00 L415.00,110.50 L414.00,111.00 L414.00,119.50 L413.00,120.00 L413.00,123.50 L412.00,124.00 L412.00,126.50 L411.00,127.00 L411.00,129.50 L410.00,130.00 L409.00,133.50 L407.00,135.00 L407.00,136.50 L405.00,138.00 L405.00,139.50 L396.50,148.00 L395.00,148.00 L394.50,149.00 L393.00,149.00 L392.50,150.00 L391.00,150.00 L388.50,152.00 L383.00,153.00 L382.50,154.00 L379.00,154.00 L378.50,155.00 L375.00,155.00 L374.50,156.00 L369.00,156.00 L368.50,157.00 L337.00,157.00 L336.50,156.50 L336.50,145.00 L337.50,144.50 L337.50,132.00 L338.50,131.50 L338.50,119.00 L339.50,118.50 L339.50,106.00 L340.50,105.50 L340.50,94.00 L341.50,93.50 L341.50,81.00 L342.50,80.50 L342.50,68.00 Z M9.00,4.00 L4.00,72.50 L85.00,73.00 L64.00,348.50 L141.50,348.50 L163.50,73.00 L245.50,72.50 L250.50,4.00 Z";
-  const trmPdfPath=TRM_SVG_D.replace(/(-?\d+\.?\d*),(-?\d+\.?\d*)/g,(_,x,y)=>`${x},${(352-parseFloat(y)).toFixed(2)}`);
-  const logoScale=22/352;   // ~22pt tall header logo
-  const ftrScale=11/352;    // ~11pt tall footer logo
-  const logoW=867*logoScale;   // ~54 pts wide
-  const ftrLogoW=867*ftrScale; // ~27 pts wide
+  const trmPdfPath=TRM_SVG_D; // pdf-lib drawSvgPath handles SVG y-down; anchor y = logo TOP, draws downward
+  const logoScale=26/352, logoW=867*(26/352), logoH=26;       // header logo ~26pt tall
+  const ftrScale=12/352, ftrLogoW=867*(12/352), ftrLogoH=12;  // footer logo ~12pt tall
 
-  // ── ASCII-safe status helpers ──
-  const lsiStatus = v => {
-    const n = parseFloat(v);
-    if(isNaN(n)) return null;
-    if(n>=90) return { color:LIME_R, bg:rgb(0.07,0.12,0.03), txt:LIME_R, label:"PASS" };
-    if(n>=80) return { color:GOLD_R, bg:rgb(0.12,0.1,0.02),  txt:GOLD_R, label:"BORDERLINE" };
-    return       { color:RED_R,  bg:rgb(0.12,0.04,0.04), txt:RED_R,  label:"FAIL" };
-  };
-  const asymStatus = v => {
-    const n = parseFloat(v);
-    if(isNaN(n)) return null;
-    if(n<=10) return { color:LIME_R, bg:rgb(0.07,0.12,0.03), txt:LIME_R, label:"PASS" };
-    if(n<=15) return { color:GOLD_R, bg:rgb(0.12,0.1,0.02),  txt:GOLD_R, label:"BORDERLINE" };
-    return      { color:RED_R,  bg:rgb(0.12,0.04,0.04), txt:RED_R,  label:"FAIL" };
-  };
+  // ── Status helpers (light theme, descriptive labels) ──
+  const lsiStatus = v => { const n=parseFloat(v); if(isNaN(n)) return null;
+    if(n>=90) return { color:LIME_R, bg:LIME_BG, txt:LIME_TXT, label:">= 90%  MEETS CRITERIA" };
+    if(n>=80) return { color:GOLD_R, bg:GOLD_BG, txt:GOLD_TXT, label:"80-89%  BORDERLINE" };
+    return            { color:RED_R,  bg:RED_BG,  txt:RED_TXT,  label:"<  80%  BELOW CRITERIA" }; };
+  const asymStatus = v => { const n=parseFloat(v); if(isNaN(n)) return null;
+    if(n<=10) return { color:LIME_R, bg:LIME_BG, txt:LIME_TXT, label:"<= 10%  WITHIN THRESHOLD" };
+    if(n<=15) return { color:GOLD_R, bg:GOLD_BG, txt:GOLD_TXT, label:"11-15%  BORDERLINE" };
+    return            { color:RED_R,  bg:RED_BG,  txt:RED_TXT,  label:">  15%  EXCEEDS THRESHOLD" }; };
 
   let pageCount=0; let page, y;
-  const L=36, R_edge=576, CW=R_edge-L, width=612, height=792;
 
+  // ── Page 1 header (dark bar 70pt + lime stripe + SVG logo) ──
+  const drawMainHeader=()=>{
+    page.drawRectangle({x:0,y:height-70,width,height:70,color:DARK_R});
+    page.drawRectangle({x:0,y:height-72,width,height:2,color:LIME_R});
+    page.drawSvgPath(trmPdfPath,{x:L,y:height-(70-logoH)/2,scale:logoScale,color:WHITE_R});
+    const ruleX=L+logoW+16;
+    page.drawLine({start:{x:ruleX,y:height-16},end:{x:ruleX,y:height-62},thickness:0.8,color:rgb(0.28,0.28,0.28)});
+    page.drawText(sanitizePdf("Hip Testing & Outcome Measures"),{x:ruleX+10,y:height-34,size:10,font,color:rgb(0.68,0.68,0.68)});
+    page.drawText(sanitizePdf("SESSION REPORT"),{x:ruleX+10,y:height-52,size:8.5,font:fontBold,color:LIME_R});
+    const dateStr=new Date().toLocaleDateString("en-US",{year:"numeric",month:"long",day:"numeric"});
+    page.drawText(sanitizePdf(dateStr),{x:R_edge-font.widthOfTextAtSize(dateStr,8),y:height-34,size:8,font,color:rgb(0.50,0.50,0.50)});
+    const refTxt="Physician Reference";
+    page.drawText(sanitizePdf(refTxt),{x:R_edge-fontBold.widthOfTextAtSize(refTxt,7.5),y:height-50,size:7.5,font:fontBold,color:rgb(0.38,0.38,0.38)});
+  };
+
+  // ── Footer (drawn on the page being left, and on the final page) ──
+  const drawFooter=(isLast)=>{
+    page.drawRectangle({x:0,y:0,width,height:26,color:DARK_R});
+    page.drawRectangle({x:0,y:26,width,height:1.5,color:LIME_R});
+    page.drawSvgPath(trmPdfPath,{x:L,y:26-(26-ftrLogoH)/2,scale:ftrScale,color:rgb(0.55,0.55,0.55)});
+    const ftrTxt=isLast?"Hip Rehabilitation Testing Tool":"Hip Rehabilitation Testing Tool  -  Session data embedded. Upload to TRM app to restore.";
+    page.drawText(sanitizePdf(ftrTxt),{x:L+ftrLogoW+8,y:8,size:6.5,font,color:rgb(0.44,0.44,0.44)});
+    const pgStr=isLast?`Page ${pageCount} of ${pageCount}`:`Page ${pageCount}`;
+    page.drawText(sanitizePdf(pgStr),{x:R_edge-font.widthOfTextAtSize(pgStr,6.5),y:8,size:6.5,font,color:rgb(0.38,0.38,0.38)});
+  };
+
+  // ── Overflow: footer on current page, new page with compact continuation header ──
   const addNewPage=()=>{
-    page=doc.addPage([width,height]); pageCount++;
-    page.drawRectangle({x:0,y:height-36,width,height:36,color:rgb(0.07,0.07,0.07)});
-    page.drawRectangle({x:0,y:height-36,width,height:2,color:LIME_R});
-    page.drawSvgPath(trmPdfPath,{x:L-4*logoScale,y:height-29,scale:logoScale,color:rgb(1,1,1)});
-    page.drawRectangle({x:L+logoW+8,y:height-30,width:0.75,height:20,color:rgb(0.2,0.2,0.2)});
-    page.drawText(sanitizePdf("Hip Testing & Outcome Measures"),{x:L+logoW+16,y:height-22,size:8.5,font:fontBold,color:LGRAY});
-    const ptCont=`${data.patient.date||""}${data.patient.weeksPostOp?"  |  Wk "+data.patient.weeksPostOp:""}${data.patient.involvedSide?"  |  "+data.patient.involvedSide+" side":""}`;
-    if(ptCont.trim()) page.drawText(sanitizePdf(ptCont.trim()),{x:R_edge-font.widthOfTextAtSize(ptCont.trim(),7),y:height-22,size:7,font,color:GRAY});
+    drawFooter(false);
+    pageCount++;
+    page=doc.addPage([width,height]);
+    page.drawRectangle({x:0,y:height-32,width,height:32,color:DARK_R});
+    page.drawRectangle({x:0,y:height-34,width,height:2,color:LIME_R});
+    page.drawText(sanitizePdf("TRM  |  Hip Testing & Outcome Measures  -  continued"),{x:L,y:height-22,size:8.5,font:fontBold,color:rgb(0.72,0.72,0.72)});
+    const ptCont=`${data.patient.date||""}${data.patient.weeksPostOp?"  -  Wk "+data.patient.weeksPostOp:""}${data.patient.involvedSide?"  -  "+data.patient.involvedSide+" side":""}`;
+    if(ptCont.trim()) page.drawText(sanitizePdf(ptCont.trim()),{x:R_edge-font.widthOfTextAtSize(ptCont.trim(),7),y:height-22,size:7,font,color:rgb(0.50,0.50,0.50)});
     y=height-52;
   };
 
-  addNewPage();
+  // ── PAGE 1 ──
+  page=doc.addPage([width,height]); pageCount++;
+  drawMainHeader();
+
+  // Patient strip
+  const pp=data.patient;
+  page.drawRectangle({x:0,y:height-108,width,height:36,color:BGRAY});
+  page.drawRectangle({x:0,y:height-109,width,height:1,color:BORDER_R});
+  const ptFields=[
+    ["Date",          pp.date || "-"],
+    ["Weeks Post-Op", pp.weeksPostOp ? `${pp.weeksPostOp} wks` : "-"],
+    ["Side",          pp.involvedSide || "-"],
+    ["Body Weight",   data.bw ? `${data.bw} lbs` : "-"],
+    ["Surgeon",       pp.surgeon ? `Dr. ${pp.surgeon}` : "-"],
+  ];
+  const ptColW=CW/ptFields.length;
+  ptFields.forEach(([lb,val],i)=>{
+    const px=L+i*ptColW;
+    page.drawText(sanitizePdf(lb.toUpperCase()),{x:px,y:height-84,size:5.5,font:fontBold,color:GRAY});
+    const v=val.length>16?val.slice(0,15)+".":val;
+    page.drawText(sanitizePdf(v),{x:px,y:height-97,size:8.5,font:fontBold,color:BLACK_R});
+  });
+  y=height-122;
 
   const dynLSIs_p={
     abd:invR?calcLSI(dyn.abdPFR,dyn.abdPFL):calcLSI(dyn.abdPFL,dyn.abdPFR),
@@ -1346,22 +1401,25 @@ async function generateSessionPDF(data, mode="download") {
     er:invR?calcLSI(dyn.erPFR,dyn.erPFL):calcLSI(dyn.erPFL,dyn.erPFR),
     ir:invR?calcLSI(dyn.irPFR,dyn.irPFL):calcLSI(dyn.irPFL,dyn.irPFR),
   };
-  const allLSIVals=[dynLSIs_p.abd,dynLSIs_p.add,dynLSIs_p.er,dynLSIs_p.ir].filter(v=>v!==null);
-  const avgLSI_p=allLSIVals.length>0?(allLSIVals.map(parseFloat).reduce((a,b)=>a+b,0)/allLSIVals.length).toFixed(1):null;
+  const allLSIVals=[dynLSIs_p.abd,dynLSIs_p.add,dynLSIs_p.er,dynLSIs_p.ir].filter(v=>v!==null).map(parseFloat);
+  const avgLSI_p=allLSIVals.length>0?(allLSIVals.reduce((a,b)=>a+b,0)/allLSIVals.length).toFixed(1):null;
+  const minDynLSI_p=allLSIVals.length>0?Math.min(...allLSIVals).toFixed(1):null;
   const imtpPFAsym_p=calcAsym(imt.pfR,imt.pfL);
   const hAvgSI_p=hopAvgIn(data.hops.singleI),hAvgSU_p=hopAvgIn(data.hops.singleU);
   const hopSingleLSI=calcLSI(hAvgSI_p,hAvgSU_p);
 
+  // Clinical snapshot header
   page.drawRectangle({x:L-4,y:y-1,width:CW+8,height:15,color:rgb(0.11,0.11,0.11)});
   page.drawRectangle({x:L-4,y:y-1,width:3,height:15,color:LIME_R});
-  page.drawText("CLINICAL SNAPSHOT  --  KEY OUTCOME METRICS",{x:L+6,y:y+3,size:7.5,font:fontBold,color:LIME_R});
+  page.drawText(sanitizePdf("CLINICAL SNAPSHOT  -  KEY OUTCOME METRICS"),{x:L+6,y:y+3,size:7.5,font:fontBold,color:LIME_R});
   y-=20;
 
   const snapItems=[];
-  if(avgLSI_p) snapItems.push({label:"Avg Dynamo LSI",value:avgLSI_p,unit:"%",st:lsiStatus(avgLSI_p),note:"All tested movements"});
-  if(imtpPFAsym_p) snapItems.push({label:"IMTP PF Asym",value:imtpPFAsym_p,unit:"%",st:asymStatus(imtpPFAsym_p),note:"Peak force asymmetry"});
-  if(hasVal(cmj.eccAsym)) snapItems.push({label:"CMJ Ecc Asym",value:cmj.eccAsym,unit:"%",st:asymStatus(cmj.eccAsym),note:"Eccentric braking impulse"});
+  if(minDynLSI_p) snapItems.push({label:"Dynamo LSI (Min)",value:minDynLSI_p,unit:"%",st:lsiStatus(minDynLSI_p),note:"Worst of tested planes"});
+  if(imtpPFAsym_p) snapItems.push({label:"IMTP Asym",value:imtpPFAsym_p,unit:"%",st:asymStatus(imtpPFAsym_p),note:"Peak force"});
   if(hopSingleLSI) snapItems.push({label:"Single Hop LSI",value:hopSingleLSI,unit:"%",st:lsiStatus(hopSingleLSI),note:`${inv} / ${uninv}`});
+  if(hasVal(data.iHOT)) snapItems.push({label:"iHOT-33",value:data.iHOT,unit:"",st:(v=>{const n=parseFloat(v);if(isNaN(n))return null;if(n>=70)return{color:LIME_R,bg:LIME_BG,txt:LIME_TXT,label:">= 70  MEETS RTS THRESHOLD"};if(n>=50)return{color:GOLD_R,bg:GOLD_BG,txt:GOLD_TXT,label:"50-69  MODERATE"};return{color:RED_R,bg:RED_BG,txt:RED_TXT,label:"<  50  SIGNIFICANT"};})(data.iHOT),note:"Patient-reported"});
+  else if(hasVal(cmj.eccAsym)) snapItems.push({label:"CMJ Ecc Asym",value:cmj.eccAsym,unit:"%",st:asymStatus(cmj.eccAsym),note:"Eccentric braking"});
 
   const showSnap=snapItems.slice(0,4);
   if(showSnap.length>0) {
@@ -1370,23 +1428,24 @@ async function generateSessionPDF(data, mode="download") {
       const bx=L+i*(boxW+4);
       const dotColor=item.st?item.st.color:LGRAY;
       const bgColor=item.st?item.st.bg:BGRAY;
+      const txtColor=item.st?item.st.txt:GRAY;
       page.drawRectangle({x:bx,y:y-boxH,width:boxW,height:boxH,color:bgColor});
       page.drawRectangle({x:bx,y:y,width:boxW,height:2,color:dotColor});
       page.drawRectangle({x:bx,y:y-boxH,width:3,height:boxH,color:dotColor});
       page.drawText(sanitizePdf(item.label.toUpperCase()),{x:bx+8,y:y-12,size:6.5,font:fontBold,color:GRAY});
       page.drawText(sanitizePdf(`${item.value}${item.unit}`),{x:bx+8,y:y-29,size:18,font:fontBold,color:dotColor});
-      if(item.st) page.drawText(sanitizePdf(item.st.label),{x:bx+8,y:y-40,size:6,font:fontBold,color:item.st.txt});
+      if(item.st) page.drawText(sanitizePdf(item.st.label),{x:bx+8,y:y-40,size:6,font:fontBold,color:txtColor});
       page.drawText(sanitizePdf(item.note),{x:bx+8,y:y-boxH+5,size:5.5,font,color:GRAY});
     });
     y-=boxH+10;
   } else {
-    page.drawText("No computed metrics -- enter testing data to generate the snapshot.",{x:L,y,size:8,font,color:GRAY});
+    page.drawText(sanitizePdf("No computed metrics -- enter testing data to generate the snapshot."),{x:L,y,size:8,font,color:GRAY});
     y-=16;
   }
   y-=4;
 
   const col2=L+Math.floor(CW/2)+4;
-  const section=title=>{ if(y<140) addNewPage(); y-=4; page.drawRectangle({x:L-4,y:y-3,width:CW+8,height:14,color:rgb(0.11,0.11,0.11)}); page.drawRectangle({x:L-4,y:y-3,width:3,height:14,color:LIME_R}); page.drawText(sanitizePdf(title.toUpperCase()),{x:L+5,y:y,size:7,font:fontBold,color:LGRAY}); y-=17; };
+  const section=title=>{ if(y<140) addNewPage(); y-=4; page.drawRectangle({x:L-4,y:y-3,width:CW+8,height:14,color:rgb(0.11,0.11,0.11)}); page.drawRectangle({x:L-4,y:y-3,width:3,height:14,color:LIME_R}); page.drawText(sanitizePdf(title.toUpperCase()),{x:L+5,y:y,size:7,font:fontBold,color:rgb(0.72,0.72,0.72)}); y-=17; };
   const row=(label,value,x2=null,label2=null,value2=null)=>{ if(y<120) addNewPage(); page.drawText(sanitizePdf(label),{x:L,y,size:8.5,font:fontBold,color:BLACK_R}); page.drawText(sanitizePdf(String(value||"--")),{x:L+165,y,size:8.5,font,color:value?BLACK_R:LGRAY}); if(x2&&label2){page.drawText(sanitizePdf(label2),{x:x2,y,size:8.5,font:fontBold,color:BLACK_R}); page.drawText(sanitizePdf(String(value2||"--")),{x:x2+165,y,size:8.5,font,color:value2?BLACK_R:LGRAY});} y-=12; };
   const lsiRow=(label,val,statusFn=lsiStatus,unit="%")=>{
     if(y<120) addNewPage();
@@ -1491,17 +1550,33 @@ async function generateSessionPDF(data, mode="download") {
   const hasProb=hasVal(data.iHOT)||hasVal(data.hosSport)||hasVal(data.tampa);
   if(hasProb) {
     section("Patient-Reported Outcomes");
-    if(hasVal(data.iHOT)) lsiRow("iHOT-33:",data.iHOT,v=>{ const n=parseFloat(v); if(isNaN(n)) return null; if(n>=70) return{color:LIME_R,bg:rgb(0.07,0.12,0.03),txt:LIME_R,label:"PASS (>=70)"}; if(n>=50) return{color:GOLD_R,bg:rgb(0.12,0.1,0.02),txt:GOLD_R,label:"MODERATE"}; return{color:RED_R,bg:rgb(0.12,0.04,0.04),txt:RED_R,label:"SIGNIFICANT"}; },"/100");
-    if(hasVal(data.hosSport)) lsiRow("HOS-Sport:",data.hosSport,v=>{ const n=parseFloat(v); if(isNaN(n)) return null; if(n>=74) return{color:LIME_R,bg:rgb(0.07,0.12,0.03),txt:LIME_R,label:"RTS THRESHOLD"}; if(n>=60) return{color:GOLD_R,bg:rgb(0.12,0.1,0.02),txt:GOLD_R,label:"BORDERLINE"}; return{color:RED_R,bg:rgb(0.12,0.04,0.04),txt:RED_R,label:"BELOW THRESHOLD"}; },"%");
-    if(hasVal(data.tampa)) lsiRow("Tampa Scale (TSK-11):",data.tampa,v=>{ const n=parseFloat(v); if(isNaN(n)) return null; if(n<=17) return{color:LIME_R,bg:rgb(0.07,0.12,0.03),txt:LIME_R,label:"ACCEPTABLE"}; if(n<=22) return{color:GOLD_R,bg:rgb(0.12,0.1,0.02),txt:GOLD_R,label:"MILD KINESIO"}; return{color:RED_R,bg:rgb(0.12,0.04,0.04),txt:RED_R,label:"ELEVATED"}; },"");
+    if(hasVal(data.iHOT)) lsiRow("iHOT-33:",data.iHOT,v=>{ const n=parseFloat(v); if(isNaN(n)) return null; if(n>=70) return{color:LIME_R,bg:LIME_BG,txt:LIME_TXT,label:">= 70  MEETS RTS THRESHOLD"}; if(n>=50) return{color:GOLD_R,bg:GOLD_BG,txt:GOLD_TXT,label:"50-69  MODERATE"}; return{color:RED_R,bg:RED_BG,txt:RED_TXT,label:"<  50  SIGNIFICANT"}; },"/100");
+    if(hasVal(data.hosSport)) lsiRow("HOS-Sport:",data.hosSport,v=>{ const n=parseFloat(v); if(isNaN(n)) return null; if(n>=74) return{color:LIME_R,bg:LIME_BG,txt:LIME_TXT,label:">= 74%  RTS THRESHOLD"}; if(n>=60) return{color:GOLD_R,bg:GOLD_BG,txt:GOLD_TXT,label:"60-73%  BORDERLINE"}; return{color:RED_R,bg:RED_BG,txt:RED_TXT,label:"<  60%  BELOW THRESHOLD"}; },"%");
+    if(hasVal(data.tampa)) lsiRow("Tampa Scale (TSK-11):",data.tampa,v=>{ const n=parseFloat(v); if(isNaN(n)) return null; if(n<=17) return{color:LIME_R,bg:LIME_BG,txt:LIME_TXT,label:"<= 17  ACCEPTABLE"}; if(n<=22) return{color:GOLD_R,bg:GOLD_BG,txt:GOLD_TXT,label:"18-22  MILD KINESIO."}; return{color:RED_R,bg:RED_BG,txt:RED_TXT,label:">  22  ELEVATED"}; },"");
     divider();
   }
 
-  page.drawRectangle({x:0,y:0,width,height:30,color:rgb(0.07,0.07,0.07)});
-  page.drawRectangle({x:0,y:26,width,height:1.5,color:LIME_R});
-  page.drawSvgPath(trmPdfPath,{x:L-4*ftrScale,y:8,scale:ftrScale,color:rgb(0.45,0.45,0.45)});
-  page.drawText(sanitizePdf("Hip Testing & Outcome Measures"),{x:L+ftrLogoW+8,y:8,size:6.5,font,color:GRAY});
-  page.drawText(`Page ${pageCount} of ${pageCount}`,{x:R_edge-font.widthOfTextAtSize(`Page ${pageCount} of ${pageCount}`,6.5),y:8,size:6.5,font,color:GRAY});
+  // Interpretation legend
+  const legendY=Math.min(y-4,70);
+  if(legendY>36) {
+    page.drawLine({start:{x:L,y:legendY+14},end:{x:R_edge,y:legendY+14},thickness:0.4,color:BORDER_R});
+    page.drawText(sanitizePdf("INTERPRETATION:"),{x:L,y:legendY+2,size:6.5,font:fontBold,color:GRAY});
+    const lgItems=[
+      {color:LIME_R,bg:LIME_BG,text:">= 90% LSI / <= 10% asym - Meets criteria"},
+      {color:GOLD_R,bg:GOLD_BG,text:"Borderline"},
+      {color:RED_R, bg:RED_BG, text:"Below criteria"},
+    ];
+    let lx=L+fontBold.widthOfTextAtSize("INTERPRETATION:",6.5)+14;
+    lgItems.forEach(({color,bg,text})=>{
+      if(lx+11+font.widthOfTextAtSize(text,6.5)>R_edge) return;
+      page.drawRectangle({x:lx,y:legendY,width:8,height:8,color:bg});
+      page.drawRectangle({x:lx,y:legendY+6,width:8,height:2,color});
+      page.drawText(sanitizePdf(text),{x:lx+11,y:legendY+1,size:6.5,font,color:GRAY});
+      lx+=11+font.widthOfTextAtSize(text,6.5)+18;
+    });
+  }
+
+  drawFooter(true);
 
   const sessionJson=JSON.stringify(data);
   const bytes=new TextEncoder().encode(sessionJson);
@@ -1606,6 +1681,15 @@ export default function App() {
   const [storageRestored, setStorageRestored] = useState(false);
   const fileInputRef    = useRef(null);
   const compareInputRef = useRef(null);
+  const navLockRef      = useRef(null);
+
+  // ── Mobile breakpoint ──────────────────────────────────────────────────────
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 700);
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < 700);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, []);
 
   // ── SIDE NAV SECTIONS ──────────────────────────────────────────────────────
   const sideNavSections = [
@@ -1620,7 +1704,13 @@ export default function App() {
 
   const scrollToSection = (ids) => {
     const el = document.getElementById(ids[0]);
-    if (el) el.scrollIntoView({ behavior:"smooth", block:"center" });
+    if (!el) return;
+    // Set the anti-glitch lock for the duration of the smooth scroll animation
+    if (navLockRef.current) clearTimeout(navLockRef.current);
+    navLockRef.current = setTimeout(() => { navLockRef.current = null; }, 700);
+    // Offset by sticky header height (~110px) so the card title is fully visible
+    const top = el.getBoundingClientRect().top + window.scrollY - 110;
+    window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
   };
 
   useEffect(() => {
@@ -1629,6 +1719,7 @@ export default function App() {
     const observers = [];
     const visible = new Set();
     const update = () => {
+      if (navLockRef.current) return; // tap-driven scroll in progress — don't override
       for (const sec of sideNavSections) {
         if (sec.ids.some(id => visible.has(id))) { setActiveSection(sec.key); return; }
       }
@@ -1807,29 +1898,76 @@ export default function App() {
         </nav>
       )}
 
-      {/* Mobile chip bar */}
-      {activeTab === 0 && (
-        <div className="trm-mobile-nav">
-          {sideNavSections.map(s => {
-            const active = s.key === activeSection;
-            return (
-              <button key={s.key}
-                onClick={() => { scrollToSection(s.ids); setActiveSection(s.key); }}
+      {/* Mobile bottom nav — dots + Prev/label/Next */}
+      {isMobile && activeTab === 0 && (() => {
+        const idx  = sideNavSections.findIndex(s => s.key === activeSection);
+        const cur  = sideNavSections[idx] ?? sideNavSections[0];
+        const prev = sideNavSections[idx - 1];
+        const next = sideNavSections[idx + 1];
+        return (
+          <div style={{
+            position:"fixed", bottom:0, left:0, right:0,
+            zIndex:150, background:"#0f0f0f",
+            borderTop:`1px solid ${LIME}33`,
+            paddingBottom:"env(safe-area-inset-bottom)",
+          }}>
+            {/* Section dots */}
+            <div style={{ display:"flex", justifyContent:"center", gap:5, paddingTop:8, paddingBottom:4 }}>
+              {sideNavSections.map(s => (
+                <button key={s.key} onClick={() => { scrollToSection(s.ids); setActiveSection(s.key); }} style={{
+                  width: s.key === activeSection ? 22 : 7, height:7, borderRadius:4,
+                  padding:0, border:"none", flexShrink:0,
+                  background: s.key === activeSection ? LIME : "#2e2e2e",
+                  cursor:"pointer", transition:"width 0.2s, background 0.2s",
+                }}/>
+              ))}
+            </div>
+            {/* Prev / label / Next */}
+            <div style={{ display:"flex", alignItems:"stretch", gap:6, padding:"4px 12px 10px" }}>
+              <button
+                onClick={() => { if (prev) { scrollToSection(prev.ids); setActiveSection(prev.key); } }}
+                disabled={!prev}
                 style={{
-                  flex:1, height:44, borderRadius:8,
-                  border: active ? "none" : "1px solid #2a2a2a",
-                  background: active ? LIME : "#181818",
-                  color: active ? BLACK : "#555",
-                  fontSize:10, fontWeight:800, letterSpacing:"0.08em",
-                  textTransform:"uppercase", cursor:"pointer",
-                  transition:"background 0.15s,color 0.15s", padding:0,
+                  flex:1, display:"flex", alignItems:"center", gap:8,
+                  padding:"8px 10px", borderRadius:10,
+                  border:`1px solid ${prev ? BORDER : "#181818"}`,
+                  background: prev ? "#1a1a1a" : "#0a0a0a",
+                  cursor: prev ? "pointer" : "default", textAlign:"left", minWidth:0,
                 }}>
-                {s.label}
+                <span style={{ fontSize:18, color: prev ? "#666" : "#222", lineHeight:1, flexShrink:0 }}>‹</span>
+                {prev && (
+                  <div>
+                    <div style={{ fontSize:8, color:"#555", fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase" }}>Prev</div>
+                    <div style={{ fontSize:10, fontWeight:700, color:"#888" }}>{prev.label}</div>
+                  </div>
+                )}
               </button>
-            );
-          })}
-        </div>
-      )}
+              <div style={{ flexShrink:0, textAlign:"center", display:"flex", flexDirection:"column", justifyContent:"center", minWidth:72 }}>
+                <div style={{ fontSize:10, fontWeight:900, color:LIME, letterSpacing:"0.08em", textTransform:"uppercase" }}>{cur.label}</div>
+                <div style={{ fontSize:8, color:"#666", fontWeight:700, marginTop:1 }}>{idx + 1} / {sideNavSections.length}</div>
+              </div>
+              <button
+                onClick={() => { if (next) { scrollToSection(next.ids); setActiveSection(next.key); } }}
+                disabled={!next}
+                style={{
+                  flex:1, display:"flex", alignItems:"center", justifyContent:"flex-end", gap:8,
+                  padding:"8px 10px", borderRadius:10,
+                  border:`1px solid ${next ? BORDER : "#181818"}`,
+                  background: next ? "#1a1a1a" : "#0a0a0a",
+                  cursor: next ? "pointer" : "default", textAlign:"right", minWidth:0,
+                }}>
+                {next && (
+                  <div>
+                    <div style={{ fontSize:8, color:"#555", fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", textAlign:"right" }}>Next</div>
+                    <div style={{ fontSize:10, fontWeight:700, color:"#888", textAlign:"right" }}>{next.label}</div>
+                  </div>
+                )}
+                <span style={{ fontSize:18, color: next ? "#666" : "#222", lineHeight:1, flexShrink:0 }}>›</span>
+              </button>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* FAB */}
       <div className="trm-fab" style={{ position:"fixed",bottom:24,right:24,zIndex:200,display:"flex",alignItems:"center",gap:8 }}>
