@@ -52,7 +52,7 @@ if (typeof document !== "undefined" && !document.getElementById("trm-concussion-
       .trm-con-tab-sub { display: none !important; }
       .trm-con-tab-btn { padding: 10px 12px !important; }
       .trm-con-stat-bar { gap: 16px !important; padding: 10px 14px !important; }
-      .trm-con-fab { bottom: 16px !important; right: 12px !important; gap: 5px !important; }
+      .trm-con-fab { bottom: 88px !important; right: 12px !important; gap: 5px !important; }
       .trm-con-fab button { padding: 10px 12px !important; font-size: 11px !important; min-height: 44px; }
       input[type="number"], input[type="text"], select, textarea {
         font-size: 16px !important; min-height: 44px !important;
@@ -724,6 +724,20 @@ const BLANK_DATA = {
   clinicalNotes: "", noteText: "",
 };
 
+// ─── MOBILE SECTION NAV — Concussion Testing tab ─────────────────────────────
+const SECTION_NAV = [
+  { key: "patient",       label: "Patient",   ids: ["patient"] },
+  { key: "mechanism",     label: "Mechanism", ids: ["mechanism"] },
+  { key: "symptoms",      label: "CCP",       ids: ["symptoms"] },
+  { key: "cervical",      label: "Cervical",  ids: ["cervical"] },
+  { key: "voms",          label: "VOMS",      ids: ["voms"] },
+  { key: "eyeAlign",      label: "Eyes",      ids: ["eyeAlignment"] },
+  { key: "tandemGait",    label: "Gait",      ids: ["tandemGait"] },
+  { key: "exertional",    label: "Exertion",  ids: ["exertional"] },
+  { key: "rtp",           label: "RTP",       ids: ["rtp"] },
+  { key: "notes",         label: "Notes",     ids: ["clinicalNotes", "note"] },
+];
+
 // ─── TAB 1: TESTING ───────────────────────────────────────────────────────────
 function Tab1({ data: d, setData: setD }) {
   const sd    = (k, v) => setD(p => ({ ...p, [k]: v }));
@@ -739,6 +753,17 @@ function Tab1({ data: d, setData: setD }) {
   const [activeCard, setActiveCard] = useState("patient");
   const [noteCopied, setNoteCopied] = useState(false);
 
+  // ── Mobile section nav ──
+  const [isMobile, setIsMobile]          = useState(() => window.innerWidth < 700);
+  const [activeSection, setActiveSection] = useState(SECTION_NAV[0].key);
+  const navLockRef = useRef(null);
+
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < 700);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, []);
+
   const sx  = d.symptoms     || {};
   const cx  = d.cervical     || {};
   const vm  = d.voms         || {};
@@ -747,6 +772,42 @@ function Tab1({ data: d, setData: setD }) {
   const ex  = d.exertional   || {};
   const scores = ccpScores(sx);
   const numSx = Object.values(sx).filter(v => parseInt(v) > 0).length;
+
+  // ── IntersectionObserver scroll-spy (muted during tap-driven scrolls) ──
+  useEffect(() => {
+    if (!isMobile) return;
+    const visible = new Set();
+    const update = () => {
+      if (navLockRef.current) return; // tap driving the scroll — don't override
+      for (const sec of SECTION_NAV) {
+        if (sec.ids.some(id => visible.has(id))) { setActiveSection(sec.key); return; }
+      }
+    };
+    const observers = [];
+    SECTION_NAV.flatMap(s => s.ids).forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const obs = new IntersectionObserver(entries => {
+        entries.forEach(e => e.isIntersecting ? visible.add(id) : visible.delete(id));
+        update();
+      }, { threshold: 0.2 });
+      obs.observe(el);
+      observers.push(obs);
+    });
+    return () => observers.forEach(o => o.disconnect());
+  }, [isMobile]);
+
+  // Scrolls to the first element of the section's ids, offset for sticky header.
+  // The concussion sticky header is ~104px (64px logo row + 40px tab row).
+  // Using window.scrollTo gives precise control vs scrollIntoView which ignores headers.
+  const scrollToSection = (ids) => {
+    const el = document.getElementById(ids[0]);
+    if (!el) return;
+    if (navLockRef.current) clearTimeout(navLockRef.current);
+    navLockRef.current = setTimeout(() => { navLockRef.current = null; }, 700);
+    const top = el.getBoundingClientRect().top + window.scrollY - 108;
+    window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+  };
 
   const generateNote = () => sd("noteText", buildConcussionNote(d));
   const copyNote = () => {
@@ -1314,6 +1375,80 @@ function Tab1({ data: d, setData: setD }) {
           />
         )}
       </Card>
+
+      {/* Spacer so last card clears the mobile nav bar */}
+      {isMobile && <div style={{ height: 84 }} />}
+
+      {/* ── MOBILE SECTION NAV (Testing tab only) ── */}
+      {isMobile && (() => {
+        const idx  = SECTION_NAV.findIndex(s => s.key === activeSection);
+        const cur  = SECTION_NAV[idx] ?? SECTION_NAV[0];
+        const prev = SECTION_NAV[idx - 1];
+        const next = SECTION_NAV[idx + 1];
+        return (
+          <div style={{
+            position: "fixed", bottom: 0, left: 0, right: 0,
+            zIndex: 150, background: "#0f0f0f",
+            borderTop: `1px solid ${LIME}33`,
+            paddingBottom: "env(safe-area-inset-bottom)",
+          }}>
+            {/* Section dots */}
+            <div style={{ display: "flex", justifyContent: "center", gap: 5, paddingTop: 8, paddingBottom: 4 }}>
+              {SECTION_NAV.map(s => (
+                <button key={s.key} onClick={() => { scrollToSection(s.ids); setActiveSection(s.key); }} style={{
+                  width: s.key === activeSection ? 22 : 7, height: 7, borderRadius: 4,
+                  padding: 0, border: "none", flexShrink: 0,
+                  background: s.key === activeSection ? LIME : "#2e2e2e",
+                  cursor: "pointer", transition: "width 0.2s, background 0.2s",
+                }} />
+              ))}
+            </div>
+            {/* Prev / label / Next */}
+            <div style={{ display: "flex", alignItems: "stretch", gap: 6, padding: "4px 12px 10px" }}>
+              <button
+                onClick={() => { if (prev) { scrollToSection(prev.ids); setActiveSection(prev.key); } }}
+                disabled={!prev}
+                style={{
+                  flex: 1, display: "flex", alignItems: "center", gap: 8,
+                  padding: "8px 10px", borderRadius: 10,
+                  border: `1px solid ${prev ? BORDER : "#181818"}`,
+                  background: prev ? "#1a1a1a" : "#0a0a0a",
+                  cursor: prev ? "pointer" : "default", textAlign: "left", minWidth: 0,
+                }}>
+                <span style={{ fontSize: 18, color: prev ? "#666" : "#222", lineHeight: 1, flexShrink: 0 }}>‹</span>
+                {prev && (
+                  <div>
+                    <div style={{ fontSize: 8, color: "#555", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase" }}>Prev</div>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: "#888" }}>{prev.label}</div>
+                  </div>
+                )}
+              </button>
+              <div style={{ flexShrink: 0, textAlign: "center", display: "flex", flexDirection: "column", justifyContent: "center", minWidth: 72 }}>
+                <div style={{ fontSize: 10, fontWeight: 900, color: LIME, letterSpacing: "0.08em", textTransform: "uppercase" }}>{cur.label}</div>
+                <div style={{ fontSize: 8, color: "#666", fontWeight: 700, marginTop: 1 }}>{idx + 1} / {SECTION_NAV.length}</div>
+              </div>
+              <button
+                onClick={() => { if (next) { scrollToSection(next.ids); setActiveSection(next.key); } }}
+                disabled={!next}
+                style={{
+                  flex: 1, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8,
+                  padding: "8px 10px", borderRadius: 10,
+                  border: `1px solid ${next ? BORDER : "#181818"}`,
+                  background: next ? "#1a1a1a" : "#0a0a0a",
+                  cursor: next ? "pointer" : "default", textAlign: "right", minWidth: 0,
+                }}>
+                {next && (
+                  <div>
+                    <div style={{ fontSize: 8, color: "#555", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", textAlign: "right" }}>Next</div>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: "#888", textAlign: "right" }}>{next.label}</div>
+                  </div>
+                )}
+                <span style={{ fontSize: 18, color: next ? "#666" : "#222", lineHeight: 1, flexShrink: 0 }}>›</span>
+              </button>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
