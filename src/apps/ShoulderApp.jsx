@@ -579,6 +579,17 @@ async function saveSessionPDF(data, mode = "download") {
   const GRAY   = rgb(0.4, 0.4, 0.4);
   const LGRAY  = rgb(0.85, 0.85, 0.85);
   const BLACK_R = rgb(0.05, 0.05, 0.05);
+  // Sanitize text to WinAnsi-safe ASCII before any drawText call
+  const san = (t) => String(t)
+    .replace(/−/g, "-")  // mathematical minus sign
+    .replace(/—/g, "--") // em dash
+    .replace(/–/g, "-")  // en dash
+    .replace(/≥/g, ">=") // ≥
+    .replace(/≤/g, "<=") // ≤
+    .replace(/✓/g, "[check]") // ✓
+    .replace(/✗/g, "[x]")     // ✗
+    .replace(/⚠/g, "[!]")     // ⚠
+    .replace(/[^\x00-\xFF]/g, "?"); // any remaining non-latin1
   // Dual-field metadata: Subject + Keywords backup (some PDF viewers strip /Info on re-save)
   const sessionJson = JSON.stringify(data);
   const utf8Bytes = new TextEncoder().encode(sessionJson);
@@ -591,7 +602,7 @@ async function saveSessionPDF(data, mode = "download") {
   const page = doc.addPage([612, 792]);
   const L = 48, R = 564, T = 744;
   let y = T;
-  const draw = (text, x, yp, size, f, c) => page.drawText(text, { x, y: yp, size, font: f || font, color: c || BLACK_R });
+  const draw = (text, x, yp, size, f, c) => page.drawText(san(text), { x, y: yp, size, font: f || font, color: c || BLACK_R });
   const hline = (yp, c) => page.drawLine({ start: { x: L, y: yp }, end: { x: R, y: yp }, thickness: 0.5, color: c || LGRAY });
   page.drawRectangle({ x: 0, y: 758, width: 612, height: 34, color: rgb(0.04, 0.04, 0.04) });
   page.drawImage(logo.pdfImg, { x: L, y: 758 + (34 - logo.h) / 2, width: logo.w, height: logo.h });
@@ -605,7 +616,7 @@ async function saveSessionPDF(data, mode = "download") {
   const ptFields = [
     ["Date", data.patient.date], ["Surgery Type", data.patient.surgeryType],
     ["Surgeon", data.patient.surgeon], ["Weeks Post-Op", data.patient.weeksPostOp],
-    ["Involved Side", inv], ["Sex", data.patient.sex],
+    ["Involved Side", inv],
   ].filter(([,v]) => v && String(v).trim() !== "");
   let px = L;
   ptFields.forEach(([lbText, val]) => {
@@ -615,6 +626,146 @@ async function saveSessionPDF(data, mode = "download") {
     px += 120;
   });
   y -= 18; hline(y); y -= 12;
+
+  // ===== RTS Pass / Fail Summary =====
+  {
+    const invR_p  = data.patient.involvedSide === "Right";
+    const isCont  = data.patient.athleteCategory === "contact";
+    const isNonC  = data.patient.athleteCategory === "non-contact";
+    const isDom   = data.patient.armDominance === "dominant";
+    const hasProf = isCont || isNonC;
+    const strThr  = isDom ? 110 : 90;
+
+    const erRnm_p = calcTorqueNm(data.erForceR, data.leverArm);
+    const erLnm_p = calcTorqueNm(data.erForceL, data.leverArm);
+    const irRnm_p = calcTorqueNm(data.irForceR, data.leverArm);
+    const irLnm_p = calcTorqueNm(data.irForceL, data.leverArm);
+    const erLSI_p = invR_p ? calcLSI(calcNorm(erRnm_p,data.bw), calcNorm(erLnm_p,data.bw)) : calcLSI(calcNorm(erLnm_p,data.bw), calcNorm(erRnm_p,data.bw));
+    const irLSI_p = invR_p ? calcLSI(calcNorm(irRnm_p,data.bw), calcNorm(irLnm_p,data.bw)) : calcLSI(calcNorm(irLnm_p,data.bw), calcNorm(irRnm_p,data.bw));
+    const scLSI_p = calcLSI(invR_p ? data.scaptionForceR : data.scaptionForceL, invR_p ? data.scaptionForceL : data.scaptionForceR);
+    const ash_p   = data.ash || {};
+    const ashILSI = calcLSI(ash_p.isoIInvLoad,          ash_p.isoIUninvLoad);
+    const ashTLSI = calcLSI(ash_p.isoTInvLoad,          ash_p.isoTUninvLoad);
+    const ashYLSI = calcLSI(ash_p.isoYInvLoad,          ash_p.isoYUninvLoad);
+    const vFLSI   = calcLSI(ash_p.valdPlyoInvPeakForce, ash_p.valdPlyoUninvPeakForce);
+    const vTLSI   = calcLSI(ash_p.valdPlyoInvTimePeak,  ash_p.valdPlyoUninvTimePeak);
+    const func_p  = data.functional || {};
+    const ckcNums = [func_p.ckcuestReps, func_p.ckcuestReps2, func_p.ckcuestReps3].filter(v => hasVal(v)).map(v => parseFloat(v));
+    const ckcAvg_p = ckcNums.length ? (ckcNums.reduce((a,b)=>a+b,0)/ckcNums.length).toFixed(1) : null;
+    const uybc = (() => {
+      const { ueYbalInvMedial:m, ueYbalInvInfLat:il, ueYbalInvSupLat:sl, ueYbalInvLimbLength:ll } = func_p;
+      if (!hasVal(m)||!hasVal(il)||!hasVal(sl)||!hasVal(ll)||toNum(ll)===0) return null;
+      return (((toNum(m)+toNum(il)+toNum(sl))/(3*toNum(ll)))*100).toFixed(1);
+    })();
+    const avgT_p  = (...vs) => { const ns=vs.map(v=>parseFloat(v)).filter(v=>!isNaN(v)); return ns.length?(ns.reduce((a,b)=>a+b,0)/ns.length).toFixed(1):null; };
+    const spInvF  = (invR_p ? avgT_p(func_p.shotPutR1,func_p.shotPutR2,func_p.shotPutR3) : avgT_p(func_p.shotPutL1,func_p.shotPutL2,func_p.shotPutL3)) || func_p.shotPutInv  || "";
+    const spUnvF  = (invR_p ? avgT_p(func_p.shotPutL1,func_p.shotPutL2,func_p.shotPutL3) : avgT_p(func_p.shotPutR1,func_p.shotPutR2,func_p.shotPutR3)) || func_p.shotPutUninv || "";
+    const spLSI_p = calcLSI(spInvF, spUnvF);
+    const spTgt   = isDom ? 110 : 90;
+    const pe_p    = data.posteriorEndurance || {};
+    const peLSI_p = calcLSI(pe_p.timeInv, pe_p.timeUninv);
+
+    const mkC_p = (label, value, target, unit="%", notes="") => {
+      const hasData = hasVal(value);
+      const numVal  = hasData ? parseFloat(value) : 0;
+      const passes  = hasData && numVal >= target;
+      const appr    = hasData && !passes && numVal >= target - 10;
+      return { label, value, target, passes, appr, hasData, unit, notes };
+    };
+
+    const univC = [
+      { label:"Shoulder ROM WNL", passes:!!data.romWNL, appr:false, hasData:true, value:null, unit:"", notes:"Clinician confirmed" },
+      mkC_p("ER Strength LSI",       erLSI_p,  strThr, "%", `Target >=${strThr}%`),
+      mkC_p("IR Strength LSI",       irLSI_p,  strThr, "%", `Target >=${strThr}%`),
+      mkC_p("Scaption LSI",          scLSI_p,  strThr, "%", `Target >=${strThr}%`),
+      mkC_p("ASH ISO I LSI",         ashILSI,  90,     "%", ">=90% each position"),
+      mkC_p("ASH ISO T LSI",         ashTLSI,  90,     "%", ""),
+      mkC_p("ASH ISO Y LSI",         ashYLSI,  90,     "%", ""),
+      mkC_p("VALD Peak Force LSI",   vFLSI,    strThr, "%", `Plyo push-up >=${strThr}%`),
+      mkC_p("VALD Time to Peak LSI", vTLSI,    90,     "%", "<10% asymmetry"),
+      mkC_p("CKCUEST",               ckcAvg_p, 21,     " reps", ">=21 reps / 15 sec"),
+    ];
+    const contC = isCont ? [
+      mkC_p("UE Y-Balance Composite", uybc, 90, "%", "Involved limb >=90%"),
+    ] : [];
+    const nconC = isNonC ? [
+      mkC_p("Seated Shot Put LSI",    spLSI_p, spTgt, "%", `Avg LSI >=${spTgt}%`),
+      mkC_p("Posterior Endurance LSI", peLSI_p, 90,   "%", "Time held >=90% LSI"),
+    ] : [];
+
+    const allC   = [...univC, ...contC, ...nconC];
+    const passing = allC.filter(c => c.passes);
+    const allPass = allC.length > 0 && allC.every(c => c.passes);
+
+    const GN = rgb(0.09,0.64,0.29); const GN_BG = rgb(0.92,0.99,0.92); const GN_BD = rgb(0.60,0.88,0.60);
+    const AM = rgb(0.73,0.47,0.07); const AM_BG = rgb(1.0, 0.97,0.88); const AM_BD = rgb(0.90,0.78,0.45);
+    const RD = rgb(0.78,0.15,0.15); const RD_BG = rgb(1.0, 0.93,0.93); const RD_BD = rgb(0.92,0.68,0.68);
+    const ND = rgb(0.55,0.55,0.55); const ND_BG = rgb(0.96,0.96,0.96); const ND_BD = rgb(0.80,0.80,0.80);
+    const scoreC = allPass ? GN : passing.length > 0 ? AM : RD;
+    const colorsFor = (c) => c.passes ? {t:GN,bg:GN_BG,bd:GN_BD} : c.appr ? {t:AM,bg:AM_BG,bd:AM_BD} : c.hasData ? {t:RD,bg:RD_BG,bd:RD_BD} : {t:ND,bg:ND_BG,bd:ND_BD};
+
+    // Header bar
+    y -= 2;
+    page.drawRectangle({ x:L, y:y-24, width:R-L, height:26, color:rgb(0.94,0.94,0.93), borderColor:rgb(0.78,0.78,0.78), borderWidth:0.5 });
+    draw("RETURN-TO-SPORT PASS / FAIL CRITERIA", L+8, y-8, 7.5, fontBold, rgb(0.25,0.25,0.25));
+    if (hasProf) {
+      const profStr = `${isCont ? "Contact" : "Non-contact"} | ${isDom ? "Dominant" : "Non-dominant"} arm | Strength LSI threshold: >=${strThr}%`;
+      draw(profStr, L+8, y-17, 6.5, font, rgb(0.45,0.45,0.45));
+    }
+    const scoreStr = `${passing.length}/${allC.length}`;
+    const scoreW = fontBold.widthOfTextAtSize(scoreStr, 14);
+    page.drawText(san(scoreStr), { x:R-scoreW-6, y:y-12, size:14, font:fontBold, color:scoreC });
+    const stsLbl = allPass ? "ALL PASS" : "IN PROGRESS";
+    const stsW = fontBold.widthOfTextAtSize(stsLbl, 6);
+    page.drawText(san(stsLbl), { x:R-stsW-6, y:y-20, size:6, font:fontBold, color:scoreC });
+    y -= 32;
+
+    // 2-column criteria grid
+    const CW  = (R - L - 5) / 2;
+    const C2X = L + CW + 5;
+    const RH  = 19;
+
+    const drawSecLbl_p = (lbl) => {
+      page.drawLine({ start:{x:L,y:y-1}, end:{x:R,y:y-1}, thickness:0.4, color:rgb(0.78,0.78,0.78) });
+      page.drawText(san(lbl.toUpperCase()), { x:L, y:y-9, size:6.5, font:fontBold, color:rgb(0.50,0.50,0.50) });
+      y -= 14;
+    };
+
+    const drawCRow_p = (c, cx) => {
+      const cls = colorsFor(c);
+      page.drawRectangle({ x:cx, y:y-RH+4, width:CW, height:RH, color:cls.bg, borderColor:cls.bd, borderWidth:0.4 });
+      page.drawText(san(c.label), { x:cx+5, y:y-7, size:7.5, font:fontBold, color:rgb(0.05,0.05,0.05) });
+      if (c.notes) page.drawText(san(c.notes), { x:cx+5, y:y-14, size:6, font, color:rgb(0.50,0.50,0.50) });
+      const badge = !c.hasData ? "NO DATA" : c.passes ? "PASS" : c.appr ? "APPR" : "FAIL";
+      const bw    = fontBold.widthOfTextAtSize(badge, 6.5);
+      page.drawText(san(badge), { x:cx+CW-bw-4, y:y-14, size:6.5, font:fontBold, color:cls.t });
+      if (c.hasData && c.value !== null && c.value !== undefined) {
+        const valStr = c.value + c.unit;
+        const vw = fontBold.widthOfTextAtSize(valStr, 8);
+        page.drawText(san(valStr), { x:cx+CW-vw-4, y:y-7, size:8, font:fontBold, color:cls.t });
+      }
+    };
+
+    const drawSection_p = (items, label) => {
+      if (!items.length) return;
+      drawSecLbl_p(label);
+      let col = 0;
+      for (const c of items) {
+        drawCRow_p(c, col === 0 ? L : C2X);
+        if (col === 1) { y -= RH + 2; col = 0; } else { col = 1; }
+      }
+      if (col === 1) y -= RH + 2;
+      y -= 4;
+    };
+
+    drawSection_p(univC, "Universal Criteria");
+    drawSection_p(contC, "Contact Criteria");
+    drawSection_p(nconC, "Non-contact Criteria");
+
+    y -= 2; hline(y); y -= 8;
+  }
+  // ===== End RTS Pass / Fail Summary =====
+
   const noteText = buildShoulderNote(data);
   const page2 = doc.addPage([612, 792]);
   const L2 = 48, R2p = 564;
@@ -637,17 +788,17 @@ async function saveSessionPDF(data, mode = "download") {
     if (isHeader) {
       y2 -= 4;
       page2.drawRectangle({ x: L2 - 4, y: y2 - 3, width: R2p - L2 + 8, height: 15, color: rgb(0.91, 0.91, 0.91) });
-      page2.drawText(rawLine.trim(), { x: L2, y: y2, size: 8, font: fontBold, color: GRAY });
+      page2.drawText(san(rawLine.trim()), { x: L2, y: y2, size: 8, font: fontBold, color: GRAY });
       y2 -= 18;
     } else {
       const fSize = 9;
       const xOffset = isBullet ? L2 + 10 : L2;
-      const wrapped = wrapLine(rawLine.trim(), font, fSize, R2p - L2 - (isBullet ? 10 : 0));
+      const wrapped = wrapLine(san(rawLine.trim()), font, fSize, R2p - L2 - (isBullet ? 10 : 0));
       for (const wl of wrapped) { if (y2 < 48) break; page2.drawText(wl, { x: xOffset, y: y2, size: fSize, font, color: BLACK_R }); y2 -= 13; }
     }
   }
   page2.drawLine({ start: { x: L2, y: 48 }, end: { x: R2p, y: 48 }, thickness: 0.5, color: LGRAY });
-  page2.drawText("TRM Documentation Copy  —  Plain text for EMR entry.", { x: L2, y: 36, size: 7, font, color: GRAY });
+  page2.drawText(san("TRM Documentation Copy  --  Plain text for EMR entry."), { x: L2, y: 36, size: 7, font, color: GRAY });
   const pdfBytes = await doc.save();
   const filename = `TRM_Shoulder_${new Date().toISOString().slice(0,10)}.pdf`;
   const blob = new Blob([pdfBytes], { type: "application/pdf" });
@@ -2695,26 +2846,27 @@ export default function App() {
         {/* Split: Reset | Load */}
         <div style={{
           display: "flex", alignItems: "stretch",
-          border: `1px solid ${BORDER}55`, borderRadius: 7, overflow: "hidden",
-          boxShadow: "0 1px 6px rgba(0,0,0,0.3)",
+          border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8, overflow: "hidden",
+          background: "rgba(255,255,255,0.05)",
+          boxShadow: "0 2px 10px rgba(0,0,0,0.5)",
         }}>
           <button
             onClick={() => setNewPtModal(true)}
             style={{
-              padding: "7px 9px",
-              background: "rgba(248,113,113,0.04)", color: RED_BAD + "99",
+              padding: "8px 12px",
+              background: "rgba(248,113,113,0.09)", color: "rgba(248,113,113,0.85)",
               border: "none", cursor: "pointer",
               fontSize: 9, fontWeight: 800,
               letterSpacing: "0.07em", textTransform: "uppercase",
             }}>
             Reset
           </button>
-          <div style={{ width: 1, background: BORDER + "66", flexShrink: 0 }} />
+          <div style={{ width: 1, background: "rgba(255,255,255,0.12)", flexShrink: 0 }} />
           <button
             onClick={() => fileInputRef.current.click()}
             style={{
-              padding: "7px 9px",
-              background: "rgba(255,255,255,0.03)", color: "#666",
+              padding: "8px 12px",
+              background: "transparent", color: "rgba(255,255,255,0.55)",
               border: "none", cursor: "pointer",
               fontSize: 9, fontWeight: 800,
               letterSpacing: "0.07em", textTransform: "uppercase",
@@ -2723,37 +2875,41 @@ export default function App() {
           </button>
         </div>
 
-        {/* Split: Save PDF | ⬆ AirDrop */}
+        {/* Split: Save PDF | Share */}
         <div style={{
           display: "flex", alignItems: "stretch",
-          border: `1px solid ${LIME}28`, borderRadius: 7, overflow: "hidden",
-          boxShadow: `0 1px 6px ${LIME}0a`,
+          border: `1px solid ${LIME}52`, borderRadius: 8, overflow: "hidden",
+          background: LIME + "0f",
+          boxShadow: `0 2px 10px ${LIME}14`,
           opacity: saving ? 0.5 : 1,
         }}>
           <button
             onClick={handleSavePDF}
             disabled={saving}
             style={{
-              padding: "7px 11px",
-              background: LIME + "0c", color: LIME + "cc",
+              padding: "8px 14px",
+              background: "transparent", color: LIME + "f2",
               border: "none", cursor: saving ? "default" : "pointer",
               fontSize: 9, fontWeight: 800,
               letterSpacing: "0.07em", textTransform: "uppercase",
             }}>
             {saving ? "Saving…" : "Save PDF"}
           </button>
-          <div style={{ width: 1, background: LIME + "22", flexShrink: 0 }} />
+          <div style={{ width: 1, background: LIME + "40", flexShrink: 0 }} />
           <button
             onClick={handleAirDrop}
             disabled={saving}
             title="Share / AirDrop"
             style={{
-              padding: "7px 9px",
-              background: LIME + "0c", color: LIME + "cc",
+              padding: "6px 10px",
+              background: "transparent",
               border: "none", cursor: saving ? "default" : "pointer",
-              fontSize: 12, lineHeight: 1, display: "flex", alignItems: "center",
+              display: "flex", alignItems: "center", justifyContent: "center",
             }}>
-            ⬆
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="4" y="10" width="16" height="12" rx="2" fill="rgba(56,189,248,0.15)" stroke="rgba(56,189,248,0.9)" strokeWidth="1.5"/>
+              <path d="M12 2V15M12 2L9 5.5M12 2L15 5.5" stroke="rgba(56,189,248,0.9)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
           </button>
         </div>
 
