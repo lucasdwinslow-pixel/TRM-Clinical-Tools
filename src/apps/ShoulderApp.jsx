@@ -1147,20 +1147,6 @@ function Tab1({ data: d, setData: setD }) {
   return (
     <div>
       <div style={{ display: "flex", alignItems: "flex-start", gap: 0 }}>
-        <div className="trm-sidenav">
-          <div style={{ background: "#141414", border: `1px solid ${BORDER}`, borderRadius: 12, overflow: "hidden", padding: "6px 0" }}>
-            {SECTION_GROUPS.map((g, i) => {
-              const active = activeSection === g.id;
-              const filled = sectionHasData(g, d);
-              return (
-                <button key={g.id} onClick={() => scrollToSection(g.id)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "9px 14px", background: active ? LIME+"14" : "transparent", border: "none", borderLeft: `3px solid ${active ? LIME : "transparent"}`, cursor: "pointer", textAlign: "left", borderBottom: i < SECTION_GROUPS.length - 1 ? `1px solid ${BORDER}` : "none" }}>
-                  <span style={{ flex: 1, fontSize: 11, fontWeight: active ? 800 : 600, color: active ? LIME : "#888", letterSpacing: "0.07em", textTransform: "uppercase" }}>{g.label}</span>
-                  {filled && <div style={{ width: 6, height: 6, borderRadius: "50%", background: active ? LIME : LIME_DIM, flexShrink: 0 }} />}
-                </button>
-              );
-            })}
-          </div>
-        </div>
 
         <div className="trm-content" style={{ flex: 1, minWidth: 0 }}>
           <SectionAnchor id="sec-patient" label="Patient" />
