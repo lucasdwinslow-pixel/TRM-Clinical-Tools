@@ -42,10 +42,21 @@ if (typeof document !== "undefined" && !document.getElementById("trm-elbow-style
     .trm-e-sidenav::-webkit-scrollbar { width: 3px; }
     .trm-e-sidenav::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 2px; }
     .trm-e-content { flex: 1; min-width: 0; }
-    .trm-e-mobilenav { display: none; }
+    .trm-e-mobilenav {
+      display: none;
+      position: fixed; bottom: 0; left: 0; right: 0;
+      z-index: 150;
+      background: #0f0f0f;
+      border-top: 1px solid rgba(184,255,87,0.2);
+      flex-direction: row;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
+    }
     @media (max-width: 700px) {
       .trm-e-sidenav { display: none !important; }
       .trm-e-mobilenav { display: flex !important; }
+      .trm-e-main-pad { padding-bottom: 80px !important; }
       .trm-e-r2, .trm-e-r3, .trm-e-r4 { grid-template-columns: 1fr !important; }
       .trm-e-r2-persist { grid-template-columns: 1fr 1fr !important; }
       .trm-e-card-body { padding: 14px !important; }
@@ -53,7 +64,7 @@ if (typeof document !== "undefined" && !document.getElementById("trm-elbow-style
       .trm-e-tab-sub { display: none !important; }
       .trm-e-tab-btn { padding: 10px 12px !important; }
       .trm-e-stat-bar { gap: 16px !important; padding: 10px 14px !important; }
-      .trm-e-fab { bottom: 16px !important; right: 12px !important; gap: 5px !important; }
+      .trm-e-fab { bottom: 72px !important; right: 12px !important; gap: 5px !important; }
       .trm-e-fab button { padding: 10px 12px !important; font-size: 11px !important; min-height: 44px; }
       input[type="number"], input[type="text"], select, textarea { font-size: 16px !important; min-height: 44px !important; }
     }
@@ -454,64 +465,465 @@ function buildElbowNote(d) {
 // ─── PDF Save / Load ──────────────────────────────────────────────────────────
 async function saveSessionPDF(data, mode="download") {
   const { PDFDocument, rgb, StandardFonts } = await getPdfLib();
-  const doc = await PDFDocument.create();
-  const font = await doc.embedFont(StandardFonts.Helvetica);
+  const doc      = await PDFDocument.create();
+  const font     = await doc.embedFont(StandardFonts.Helvetica);
   const fontBold = await doc.embedFont(StandardFonts.HelveticaBold);
-  const GRAY=rgb(0.4,0.4,0.4), LGRAY=rgb(0.85,0.85,0.85), BLACK_R=rgb(0.05,0.05,0.05);
+
+  // WinAnsi sanitizer — prevents pdf-lib crashes on non-ASCII chars
+  const san = t => String(t)
+    .replace(/−/g,"-").replace(/—/g,"--").replace(/–/g,"-")
+    .replace(/≥/g,">=").replace(/≤/g,"<=").replace(/°/g," deg")
+    .replace(/✓/g,"[check]").replace(/✗/g,"[x]").replace(/⚠/g,"[!]")
+    .replace(/[^\x00-\xFF]/g,"?");
+
+  // Color tokens — matches ACL light paper style
+  const DARK_R   = rgb(0.07, 0.07, 0.07);
+  const WHITE_R  = rgb(1, 1, 1);
+  const BLACK_R  = rgb(0.05, 0.05, 0.05);
+  const GRAY     = rgb(0.45, 0.45, 0.45);
+  const LGRAY    = rgb(0.82, 0.82, 0.82);
+  const BGRAY    = rgb(0.96, 0.96, 0.96);
+  const BORDER_R = rgb(0.88, 0.88, 0.88);
+  const LIME_R   = rgb(0.42, 0.82, 0.12);
+  const LIME_BG  = rgb(0.90, 0.98, 0.82);
+  const LIME_TXT = rgb(0.18, 0.48, 0.04);
+  const GOLD_R   = rgb(0.90, 0.65, 0.08);
+  const GOLD_BG  = rgb(1.0,  0.95, 0.80);
+  const GOLD_TXT = rgb(0.65, 0.42, 0.02);
+  const RED_R    = rgb(0.88, 0.22, 0.22);
+  const RED_BG   = rgb(1.0,  0.90, 0.90);
+  const RED_TXT  = rgb(0.65, 0.10, 0.10);
+
+  // LSI status helper
+  const lsiSt = (v, thr=90) => {
+    const n = parseFloat(v);
+    if (isNaN(n)) return null;
+    if (n >= thr)      return { color:LIME_R, bg:LIME_BG, txt:LIME_TXT, label:"PASS" };
+    if (n >= thr - 10) return { color:GOLD_R, bg:GOLD_BG, txt:GOLD_TXT, label:"BORDERLINE" };
+    return                    { color:RED_R,  bg:RED_BG,  txt:RED_TXT,  label:"FAIL" };
+  };
+
+  // Compute metrics
+  const invR    = data.patient.involvedSide === "Right";
+  const inv     = data.patient.involvedSide || "Left";
+  const uninv   = invR ? "Left" : "Right";
+  const isDom   = data.patient.armDominance === "dominant";
+  const isCont  = data.patient.athleteCategory === "contact";
+  const strThr  = isDom && isCont ? 110 : 90;
+  const spThr   = isDom ? 110 : 90;
+
+  const gripInv   = invR ? data.gripR   : data.gripL;
+  const gripUninv = invR ? data.gripL   : data.gripR;
+  const gripLSI   = calcLSI(gripInv, gripUninv);
+
+  const scapInv   = invR ? data.scaptionForceR : data.scaptionForceL;
+  const scapUninv = invR ? data.scaptionForceL : data.scaptionForceR;
+  const scapLSI   = calcLSI(scapInv, scapUninv);
+
+  const erInv   = invR ? data.erForceR : data.erForceL;
+  const erUninv = invR ? data.erForceL : data.erForceR;
+  const erLSI   = calcLSI(erInv, erUninv);
+
+  const irInv   = invR ? data.irForceR : data.irForceL;
+  const irUninv = invR ? data.irForceL : data.irForceR;
+  const irLSI   = calcLSI(irInv, irUninv);
+
+  const erIRRatio = calcERIR(erInv, irInv);
+
+  const ash       = data.ash || {};
+  const ashLSI    = calcLSI(ash.peakInv, ash.peakUninv);
+  const ashTpfLSI = calcLSI(ash.tpfInv, ash.tpfUninv);
+  const ashThr    = isDom ? 110 : 90;
+
+  const ckcVals = [data.ckcuestReps,data.ckcuestReps2,data.ckcuestReps3].map(v=>parseFloat(v)).filter(v=>!isNaN(v));
+  const ckcAvg  = ckcVals.length ? (ckcVals.reduce((a,b)=>a+b,0)/ckcVals.length).toFixed(1) : null;
+
+  const ue = data.ueYbal || {};
+  const ueCompInv = (hasVal(ue.invMedial)&&hasVal(ue.invInfLat)&&hasVal(ue.invSupLat)&&hasVal(ue.invLimbLength)&&toNum(ue.invLimbLength)>0)
+    ? (((toNum(ue.invMedial)+toNum(ue.invInfLat)+toNum(ue.invSupLat))/(3*toNum(ue.invLimbLength)))*100).toFixed(1) : null;
+
+  const spInvAvg   = avgTrials(data.shotputInv1,  data.shotputInv2,  data.shotputInv3);
+  const spUninvAvg = avgTrials(data.shotputUninv1, data.shotputUninv2, data.shotputUninv3);
+  const spLSI = calcLSI(spInvAvg, spUninvAvg);
+
+  const pe    = data.pse || {};
+  const peLSI = calcLSI(pe.timeInv, pe.timeUninv);
+
+  // Session embed
   const sessionJson = JSON.stringify(data);
-  const utf8Bytes = new TextEncoder().encode(sessionJson);
+  const utf8Bytes   = new TextEncoder().encode(sessionJson);
   let binary = ""; utf8Bytes.forEach(b=>{ binary+=String.fromCharCode(b); });
   const encoded = btoa(binary);
-  doc.setSubject("TRM_ELBOW_V1:"+encoded);
-  doc.setKeywords(["TRM_ELBOW_V1:"+encoded]);
-  doc.setTitle("TRM Elbow Session");
-  const page = doc.addPage([612,792]);
-  const L=48,R=564,T=744; let y=T;
-  const draw=(text,x,yp,size,f,c)=>page.drawText(text,{x,y:yp,size,font:f||font,color:c||BLACK_R});
-  page.drawRectangle({x:0,y:758,width:612,height:34,color:rgb(0.04,0.04,0.04)});
-  draw("TRM",L,769,15,fontBold,rgb(1,1,1));
-  draw("Elbow Testing & Outcome Measures",L+46,769,9,font,GRAY);
-  const today=new Date().toLocaleDateString("en-US",{year:"numeric",month:"long",day:"numeric"});
-  draw(today,R-font.widthOfTextAtSize(today,9),769,9,font,GRAY);
-  y=T-12; draw("PATIENT",L,y,7,fontBold,GRAY); y-=14;
-  const inv=data.patient.involvedSide;
-  const ptFields=[["Date",data.patient.date],["Surgery",data.patient.surgeryType],["Surgeon",data.patient.surgeon],["Weeks Post-Op",data.patient.weeksPostOp],["Involved",inv],["Sex",data.patient.sex]].filter(([,v])=>v&&String(v).trim()!=="");
-  let px=L;
-  ptFields.forEach(([lb,val])=>{ if(px>R-80){px=L;y-=14;} draw(lb+": ",px,y,8,fontBold,GRAY); draw(String(val),px+fontBold.widthOfTextAtSize(lb+": ",8),y,8,font,BLACK_R); px+=120; });
-  y-=18; page.drawLine({start:{x:L,y},end:{x:R,y},thickness:0.5,color:LGRAY}); y-=12;
-  const noteText=buildElbowNote(data);
-  const page2=doc.addPage([612,792]);
-  const L2=48,R2p=564; let y2=744;
-  page2.drawRectangle({x:0,y:758,width:612,height:34,color:rgb(0.04,0.04,0.04)});
-  page2.drawText("TRM",{x:L2,y:769,size:15,font:fontBold,color:rgb(1,1,1)});
-  page2.drawText("Elbow Testing — SOAP Note",{x:L2+46,y:769,size:9,font,color:GRAY});
-  const wrapLine=(text,fnt,size,maxW)=>{ const words=text.split(" "); const wrapped=[]; let cur=""; for(const w of words){const test=cur?cur+" "+w:w; if(fnt.widthOfTextAtSize(test,size)<=maxW){cur=test;}else{if(cur)wrapped.push(cur);cur=w;}} if(cur)wrapped.push(cur); return wrapped.length?wrapped:[""]; };
-  const noteLines=noteText.split("\n");
-  for(const rawLine of noteLines){
-    if(y2<48) break;
-    if(rawLine===""){y2-=7;continue;}
-    const isHeader=rawLine===rawLine.toUpperCase()&&rawLine.trim().length>0&&!rawLine.includes(":")&&rawLine.trim().length<80;
-    const isBullet=rawLine.startsWith("  ");
-    if(isHeader){ y2-=4; page2.drawRectangle({x:L2-4,y:y2-3,width:R2p-L2+8,height:15,color:rgb(0.91,0.91,0.91)}); page2.drawText(rawLine.trim(),{x:L2,y:y2,size:8,font:fontBold,color:GRAY}); y2-=18; }
-    else{ const fSize=9; const xOff=isBullet?L2+10:L2; const wrapped=wrapLine(rawLine.trim(),font,fSize,R2p-L2-(isBullet?10:0)); for(const wl of wrapped){if(y2<48)break;page2.drawText(wl,{x:xOff,y:y2,size:fSize,font,color:BLACK_R});y2-=13;} }
+  doc.setSubject("TRM_ELBOW_V1:" + encoded);
+  doc.setKeywords(["TRM_ELBOW_V1:" + encoded]);
+  doc.setTitle(san("TRM Elbow Session -- " + (data.patient.date || new Date().toISOString().slice(0,10))));
+
+  // Page layout constants
+  const L      = 36;
+  const R_edge = 576;
+  const CW     = R_edge - L;
+  const width  = 612;
+  const height = 792;
+  const col2   = L + Math.floor(CW / 2) + 4;
+
+  let page, y, pageCount = 0;
+
+  const addNewPage = () => {
+    // Draw footer on the page we're leaving (skip on very first call)
+    if (pageCount > 0) {
+      page.drawRectangle({ x:0, y:0, width, height:26, color:DARK_R });
+      page.drawRectangle({ x:0, y:26, width, height:1.5, color:LIME_R });
+      page.drawText(san("TRM  |  Elbow Rehabilitation Testing Tool  --  Session data embedded. Upload to TRM app to restore."), {
+        x:L, y:8, size:6.5, font, color:rgb(0.44,0.44,0.44)
+      });
+      page.drawText(san(`Page ${pageCount}`), {
+        x:R_edge - font.widthOfTextAtSize(`Page ${pageCount}`, 6.5), y:8, size:6.5, font, color:rgb(0.38,0.38,0.38)
+      });
+    }
+    pageCount++;
+    page = doc.addPage([width, height]);
+
+    if (pageCount === 1) {
+      // ── Full page-1 header ──────────────────────────────────────────────
+      page.drawRectangle({ x:0, y:height-70, width, height:70, color:DARK_R });
+      page.drawRectangle({ x:0, y:height-72, width, height:2, color:LIME_R });
+      page.drawText(san("TRM"), { x:L, y:height-48, size:34, font:fontBold, color:WHITE_R });
+      page.drawLine({ start:{x:L+82, y:height-16}, end:{x:L+82, y:height-62}, thickness:0.8, color:rgb(0.28,0.28,0.28) });
+      page.drawText(san("Elbow Testing & Outcome Measures"), { x:L+92, y:height-34, size:10, font, color:rgb(0.68,0.68,0.68) });
+      page.drawText(san("SESSION REPORT"), { x:L+92, y:height-52, size:8.5, font:fontBold, color:LIME_R });
+      const dateStr = new Date().toLocaleDateString("en-US", { year:"numeric", month:"long", day:"numeric" });
+      page.drawText(san(dateStr), { x:R_edge-font.widthOfTextAtSize(dateStr,8), y:height-34, size:8, font, color:rgb(0.50,0.50,0.50) });
+      page.drawText(san("Physician Reference"), { x:R_edge-fontBold.widthOfTextAtSize("Physician Reference",7.5), y:height-50, size:7.5, font:fontBold, color:rgb(0.38,0.38,0.38) });
+      // ── Patient strip ───────────────────────────────────────────────────
+      const p = data.patient;
+      page.drawRectangle({ x:0, y:height-108, width, height:36, color:BGRAY });
+      page.drawRectangle({ x:0, y:height-109, width, height:1, color:BORDER_R });
+      const ptFields = [
+        ["Date",         p.date         || "--"],
+        ["Weeks Post-Op",p.weeksPostOp  ? `${p.weeksPostOp} wks` : "--"],
+        ["Side",         p.involvedSide || "--"],
+        ["Surgery",      p.surgeryType  || "--"],
+        ["Surgeon",      p.surgeon      ? `Dr. ${p.surgeon}` : "--"],
+      ];
+      const ptColW = CW / ptFields.length;
+      ptFields.forEach(([label, val], i) => {
+        const px = L + i * ptColW;
+        page.drawText(san(label.toUpperCase()), { x:px, y:height-84, size:5.5, font:fontBold, color:GRAY });
+        const v = val.length > 16 ? val.slice(0,15) + "." : val;
+        page.drawText(san(v), { x:px, y:height-97, size:8.5, font:fontBold, color:BLACK_R });
+      });
+      y = height - 122;
+    } else {
+      // ── Compact continuation header ─────────────────────────────────────
+      page.drawRectangle({ x:0, y:height-32, width, height:32, color:DARK_R });
+      page.drawRectangle({ x:0, y:height-34, width, height:2, color:LIME_R });
+      page.drawText(san("TRM  |  Elbow Testing & Outcome Measures  --  continued"), {
+        x:L, y:height-22, size:8.5, font:fontBold, color:rgb(0.72,0.72,0.72)
+      });
+      const ptCont = san(`${data.patient.date||""}${data.patient.weeksPostOp?"  |  Wk "+data.patient.weeksPostOp:""}${data.patient.involvedSide?"  |  "+data.patient.involvedSide+" side":""}`).trim();
+      if (ptCont) page.drawText(ptCont, { x:R_edge-font.widthOfTextAtSize(ptCont,7), y:height-22, size:7, font, color:rgb(0.50,0.50,0.50) });
+      y = height - 52;
+    }
+  };
+
+  // Drawing helpers
+  const wrapLine = (text, fnt, size, maxW) => {
+    const words = text.split(" "); const wrapped = []; let cur = "";
+    for (const w of words) { const test = cur ? cur+" "+w : w; if (fnt.widthOfTextAtSize(test,size)<=maxW){cur=test;}else{if(cur)wrapped.push(cur);cur=w;} }
+    if (cur) wrapped.push(cur);
+    return wrapped.length ? wrapped : [""];
+  };
+
+  const section = title => {
+    if (y < 140) addNewPage();
+    y -= 4;
+    page.drawRectangle({ x:L-4, y:y-3, width:CW+8, height:14, color:rgb(0.11,0.11,0.11) });
+    page.drawRectangle({ x:L-4, y:y-3, width:3,    height:14, color:LIME_R });
+    page.drawText(san(title.toUpperCase()), { x:L+5, y, size:7, font:fontBold, color:LGRAY });
+    y -= 17;
+  };
+
+  const row = (label, value, x2=null, label2=null, value2=null) => {
+    if (y < 120) addNewPage();
+    page.drawText(san(label), { x:L, y, size:8.5, font:fontBold, color:BLACK_R });
+    page.drawText(san(String(value||"--")), { x:L+165, y, size:8.5, font, color:value?BLACK_R:LGRAY });
+    if (x2 && label2) {
+      page.drawText(san(label2), { x:x2, y, size:8.5, font:fontBold, color:BLACK_R });
+      page.drawText(san(String(value2||"--")), { x:x2+165, y, size:8.5, font, color:value2?BLACK_R:LGRAY });
+    }
+    y -= 12;
+  };
+
+  const lsiRow = (label, val, thr=90, unit="%") => {
+    if (y < 120) addNewPage();
+    const st = lsiSt(val, thr);
+    page.drawText(san(label), { x:L, y, size:8.5, font:fontBold, color:BLACK_R });
+    if (val !== null && val !== undefined) {
+      const valStr = `${val}${unit}`;
+      page.drawText(san(valStr), { x:L+165, y, size:8.5, font:fontBold, color:st?st.color:GRAY });
+      if (st) {
+        const chipX = L+165+fontBold.widthOfTextAtSize(valStr,8.5)+8;
+        const chipW = fontBold.widthOfTextAtSize(st.label,5.8)+8;
+        page.drawRectangle({ x:chipX, y:y-2, width:chipW, height:11, color:st.bg });
+        page.drawRectangle({ x:chipX, y:y-2, width:chipW, height:1.5, color:st.color });
+        page.drawText(san(st.label), { x:chipX+4, y:y+1, size:5.8, font:fontBold, color:st.txt });
+      }
+    } else {
+      page.drawText("--", { x:L+165, y, size:8.5, font, color:LGRAY });
+    }
+    y -= 12;
+  };
+
+  const divider = () => {
+    if (y < 120) { addNewPage(); return; }
+    page.drawLine({ start:{x:L,y}, end:{x:R_edge,y}, thickness:0.4, color:BORDER_R });
+    y -= 8;
+  };
+
+  // ── Page 1: Clinical data ───────────────────────────────────────────────────
+  addNewPage();
+
+  // Clinical snapshot boxes (up to 4 key LSI metrics)
+  const snapItems = [];
+  if (gripLSI) snapItems.push({ label:"Grip LSI",     value:gripLSI,  unit:"%", st:lsiSt(gripLSI,strThr),  note:`${inv} vs ${uninv}` });
+  if (erLSI)   snapItems.push({ label:"ER LSI",        value:erLSI,    unit:"%", st:lsiSt(erLSI,strThr),    note:`Target >=${strThr}%` });
+  if (ashLSI)  snapItems.push({ label:"ASH Peak LSI",  value:ashLSI,   unit:"%", st:lsiSt(ashLSI,ashThr),   note:"Force plate" });
+  if (spLSI)   snapItems.push({ label:"Shotput LSI",   value:spLSI,    unit:"%", st:lsiSt(spLSI,spThr),     note:`Target >${spThr}%` });
+  if (snapItems.length === 0 && ckcAvg) snapItems.push({ label:"CKC UEST Avg", value:ckcAvg, unit:" reps",
+    st: parseFloat(ckcAvg)>21 ? {color:LIME_R,bg:LIME_BG,txt:LIME_TXT,label:"PASS"} : {color:GOLD_R,bg:GOLD_BG,txt:GOLD_TXT,label:"BORDERLINE"},
+    note:"Target >21 reps" });
+  const showSnap = snapItems.slice(0,4);
+
+  page.drawRectangle({ x:L-4, y:y-1, width:CW+8, height:15, color:rgb(0.11,0.11,0.11) });
+  page.drawRectangle({ x:L-4, y:y-1, width:3, height:15, color:LIME_R });
+  page.drawText("CLINICAL SNAPSHOT  --  KEY OUTCOME METRICS", { x:L+6, y:y+3, size:7.5, font:fontBold, color:LIME_R });
+  y -= 20;
+
+  if (showSnap.length > 0) {
+    const boxW = Math.floor(CW/4) - 3;
+    const boxH = 50;
+    showSnap.forEach((item, i) => {
+      const bx = L + i*(boxW+4);
+      const dc = item.st ? item.st.color : LGRAY;
+      const bg = item.st ? item.st.bg    : BGRAY;
+      page.drawRectangle({ x:bx, y:y-boxH, width:boxW, height:boxH, color:bg });
+      page.drawRectangle({ x:bx, y:y,      width:boxW, height:2,     color:dc });
+      page.drawRectangle({ x:bx, y:y-boxH, width:3,    height:boxH,  color:dc });
+      page.drawText(san(item.label.toUpperCase()), { x:bx+8, y:y-12, size:6.5, font:fontBold, color:GRAY });
+      page.drawText(san(`${item.value}${item.unit}`), { x:bx+8, y:y-29, size:18, font:fontBold, color:dc });
+      if (item.st) page.drawText(san(item.st.label), { x:bx+8, y:y-40, size:6, font:fontBold, color:item.st.txt });
+      page.drawText(san(item.note), { x:bx+8, y:y-boxH+5, size:5.5, font, color:GRAY });
+    });
+    y -= boxH + 10;
+  } else {
+    page.drawText("No computed metrics -- enter testing data to generate the snapshot.", { x:L, y, size:8, font, color:GRAY });
+    y -= 16;
   }
-  page2.drawLine({start:{x:L2,y:48},end:{x:R2p,y:48},thickness:0.5,color:LGRAY});
-  page2.drawText("TRM Documentation Copy — Plain text for EMR entry.",{x:L2,y:36,size:7,font,color:GRAY});
-  const pdfBytes=await doc.save();
-  const filename=`TRM_Elbow_${new Date().toISOString().slice(0,10)}.pdf`;
-  const blob=new Blob([pdfBytes],{type:"application/pdf"});
-  if(mode==="share"){
-    const shareFile=new File([blob],filename,{type:"application/pdf"});
-    if(navigator.canShare&&navigator.canShare({files:[shareFile]})){
-      try{ await navigator.share({files:[shareFile],title:"TRM Elbow Session PDF"}); }catch(err){ if(err.name!=="AbortError") throw err; }
+  y -= 4;
+
+  // Patient info
+  section("Patient Information");
+  const p = data.patient;
+  if (p.date || p.weeksPostOp) row("Date / Weeks Post-Op", san(`${p.date||"--"}  /  ${p.weeksPostOp?p.weeksPostOp+" wks":"--"}`));
+  if (p.surgeryType) row("Surgery Type", san(p.surgeryType));
+  if (p.surgeon)     row("Surgeon",      san(p.surgeon));
+  row("Involved Side", san(inv));
+  if (p.athleteCategory || p.armDominance)
+    row("Athlete Category", san(isCont?"Contact":"Non-Contact"), col2, "Arm (Involved)", san(isDom?"Dominant":"Non-Dominant"));
+  if (hasVal(data.bw) || hasVal(data.leverArm))
+    row("Body Weight (lbs)", san(data.bw||"--"), col2, "Lever Arm (cm)", san(data.leverArm||"--"));
+
+  // Subjective criteria
+  const subj = data.subj || {};
+  if (Object.values(subj).some(Boolean)) {
+    divider(); section("Subjective Criteria");
+    if (subj.painFree)       row("Pain-free with activity", "Yes");
+    if (subj.noSwelling)     row("No swelling / effusion",  "Yes");
+    if (subj.noInstability)  row("No instability",          "Yes");
+    if (subj.physicianClear) row("Physician clearance",     "Obtained");
+  }
+
+  // ROM
+  const hasROM = [data.elbowFlexR,data.elbowFlexL,data.elbowExtR,data.elbowExtL,data.pronationR,data.pronationL,data.supinationR,data.supinationL].some(hasVal);
+  if (hasROM || data.romWNL) {
+    divider(); section("Range of Motion");
+    if (hasVal(data.elbowFlexR)||hasVal(data.elbowFlexL))   row("Elbow Flex R / L",  san(`${data.elbowFlexR||"--"} deg / ${data.elbowFlexL||"--"} deg`));
+    if (hasVal(data.elbowExtR) ||hasVal(data.elbowExtL))    row("Elbow Ext R / L",   san(`${data.elbowExtR||"--"} deg / ${data.elbowExtL||"--"} deg`));
+    if (hasVal(data.pronationR)||hasVal(data.pronationL))   row("Pronation R / L",   san(`${data.pronationR||"--"} deg / ${data.pronationL||"--"} deg`));
+    if (hasVal(data.supinationR)||hasVal(data.supinationL)) row("Supination R / L",  san(`${data.supinationR||"--"} deg / ${data.supinationL||"--"} deg`));
+    if (data.romWNL) row("ROM WNL", "Confirmed");
+  }
+
+  // Grip strength
+  if (hasVal(gripInv)||hasVal(gripUninv)) {
+    divider(); section("Grip Strength (Dynamometer)");
+    if (hasVal(gripInv))   row(san(`Grip ${inv} (Involved)`),   san(`${gripInv} lbs`));
+    if (hasVal(gripUninv)) row(san(`Grip ${uninv} (Uninvolved)`), san(`${gripUninv} lbs`));
+    if (gripLSI)           lsiRow("Grip LSI", gripLSI, strThr);
+    if (y < 120) addNewPage();
+    page.drawText(san(`Normative ref: sex-matched normative data`), { x:L, y, size:7.5, font, color:GRAY }); y -= 12;
+  }
+
+  // Shoulder dynamo
+  if (hasVal(scapInv)||hasVal(erInv)||hasVal(irInv)) {
+    divider(); section("Shoulder Dynamo Strength");
+    if (hasVal(scapInv)||hasVal(scapUninv)) {
+      row(san(`Scaption ${inv}`), san(`${scapInv||"--"} lbs`), col2, san(`Scaption ${uninv}`), san(`${scapUninv||"--"} lbs`));
+      if (scapLSI) lsiRow("Scaption LSI", scapLSI, strThr);
+    }
+    if (hasVal(erInv)||hasVal(erUninv)) {
+      row(san(`ER ${inv}`), san(`${erInv||"--"} lbs`), col2, san(`ER ${uninv}`), san(`${erUninv||"--"} lbs`));
+      if (erLSI) lsiRow("ER LSI", erLSI, strThr);
+    }
+    if (hasVal(irInv)||hasVal(irUninv)) {
+      row(san(`IR ${inv}`), san(`${irInv||"--"} lbs`), col2, san(`IR ${uninv}`), san(`${irUninv||"--"} lbs`));
+      if (irLSI) lsiRow("IR LSI", irLSI, strThr);
+    }
+    if (erIRRatio) lsiRow(san(`ER:IR Ratio (${inv})`), erIRRatio, 65);
+  }
+
+  // ASH test
+  if (hasVal(ash.peakInv)||hasVal(ash.peakUninv)) {
+    divider(); section("ASH Test (Force Plate)");
+    row(san(`Peak Force ${inv}`), san(`${ash.peakInv||"--"} N`), col2, san(`Peak Force ${uninv}`), san(`${ash.peakUninv||"--"} N`));
+    if (ashLSI) lsiRow("Peak Force LSI", ashLSI, ashThr);
+    if (hasVal(ash.tpfInv)||hasVal(ash.tpfUninv)) {
+      row(san(`TPF ${inv}`), san(`${ash.tpfInv||"--"} ms`), col2, san(`TPF ${uninv}`), san(`${ash.tpfUninv||"--"} ms`));
+      if (ashTpfLSI) {
+        const tpfAsym = (100 - parseFloat(ashTpfLSI)).toFixed(1);
+        const tpfSt = parseFloat(tpfAsym) <= 10
+          ? { color:LIME_R, bg:LIME_BG, txt:LIME_TXT, label:"PASS" }
+          : parseFloat(tpfAsym) <= 15
+            ? { color:GOLD_R, bg:GOLD_BG, txt:GOLD_TXT, label:"BORDERLINE" }
+            : { color:RED_R,  bg:RED_BG,  txt:RED_TXT,  label:"FAIL" };
+        if (y < 120) addNewPage();
+        page.drawText(san("TPF Asymmetry"), { x:L, y, size:8.5, font:fontBold, color:BLACK_R });
+        page.drawText(san(`${tpfAsym}%`), { x:L+165, y, size:8.5, font:fontBold, color:tpfSt.color });
+        const chipX = L+165+fontBold.widthOfTextAtSize(`${tpfAsym}%`,8.5)+8;
+        const chipW = fontBold.widthOfTextAtSize(tpfSt.label,5.8)+8;
+        page.drawRectangle({ x:chipX, y:y-2, width:chipW, height:11, color:tpfSt.bg });
+        page.drawRectangle({ x:chipX, y:y-2, width:chipW, height:1.5, color:tpfSt.color });
+        page.drawText(san(tpfSt.label), { x:chipX+4, y:y+1, size:5.8, font:fontBold, color:tpfSt.txt });
+        y -= 12;
+      }
+    }
+  }
+
+  // CKC UEST
+  if (ckcAvg) {
+    divider(); section("CKC Upper Extremity Stability Test");
+    const ckcSt = parseFloat(ckcAvg) > 21
+      ? { color:LIME_R, bg:LIME_BG, txt:LIME_TXT, label:"PASS" }
+      : { color:GOLD_R, bg:GOLD_BG, txt:GOLD_TXT, label:"BORDERLINE" };
+    if (y < 120) addNewPage();
+    page.drawText(san("Avg Reps (target >21)"), { x:L, y, size:8.5, font:fontBold, color:BLACK_R });
+    page.drawText(san(`${ckcAvg} reps`), { x:L+165, y, size:8.5, font:fontBold, color:ckcSt.color });
+    const cChipX = L+165+fontBold.widthOfTextAtSize(`${ckcAvg} reps`,8.5)+8;
+    const cChipW = fontBold.widthOfTextAtSize(ckcSt.label,5.8)+8;
+    page.drawRectangle({ x:cChipX, y:y-2, width:cChipW, height:11, color:ckcSt.bg });
+    page.drawRectangle({ x:cChipX, y:y-2, width:cChipW, height:1.5, color:ckcSt.color });
+    page.drawText(san(ckcSt.label), { x:cChipX+4, y:y+1, size:5.8, font:fontBold, color:ckcSt.txt });
+    y -= 12;
+  }
+
+  // UE Y-Balance
+  if (hasVal(ue.invMedial)||ueCompInv) {
+    divider(); section("UE Y-Balance Test");
+    if (hasVal(ue.invLimbLength)) row("Limb Length (Inv)", san(`${ue.invLimbLength} cm`));
+    if (hasVal(ue.invMedial)) row(san(`${inv}: Med / InfLat / SupLat`), san(`${ue.invMedial||"--"} / ${ue.invInfLat||"--"} / ${ue.invSupLat||"--"} cm`));
+    if (hasVal(ue.uninvMedial)) row(san(`${uninv}: Med / InfLat / SupLat`), san(`${ue.uninvMedial||"--"} / ${ue.uninvInfLat||"--"} / ${ue.uninvSupLat||"--"} cm`));
+    if (ueCompInv) lsiRow(san(`${inv} Composite`), ueCompInv, 90);
+  }
+
+  // Shotput
+  if (spInvAvg||spUninvAvg) {
+    divider(); section("Seated Shotput Test");
+    if (spInvAvg)   row(san(`${inv} Avg`),   san(`${spInvAvg}"`));
+    if (spUninvAvg) row(san(`${uninv} Avg`), san(`${spUninvAvg}"`));
+    if (spLSI) lsiRow("Shotput LSI", spLSI, spThr);
+  }
+
+  // PSE
+  if (hasVal(pe.timeInv)||hasVal(pe.timeUninv)) {
+    divider(); section("Posterior Shoulder Endurance (PSE)");
+    if (hasVal(pe.timeInv))   row(san(`Time ${inv}`),   san(`${pe.timeInv} sec`));
+    if (hasVal(pe.timeUninv)) row(san(`Time ${uninv}`), san(`${pe.timeUninv} sec`));
+    if (peLSI) lsiRow("Time LSI", peLSI, 90);
+  }
+
+  // Clinical assessments
+  if (data.n9090Pass||data.fdsExtPass) {
+    divider(); section("Clinical Assessments");
+    if (data.n9090Pass)  row("90/90 Assessment",    "Pass");
+    if (data.fdsExtPass) row("FDS Extension Test",  "Pass");
+  }
+
+  // Clinical notes
+  if (data.clinicalNotes?.trim()) {
+    divider(); section("Clinical Notes");
+    for (const nl of data.clinicalNotes.trim().split("\n")) {
+      for (const wl of wrapLine(nl.trim(), font, 8.5, CW)) {
+        if (y < 120) addNewPage();
+        page.drawText(san(wl), { x:L, y, size:8.5, font, color:BLACK_R }); y -= 12;
+      }
+    }
+  }
+
+  // ── Page 2: SOAP Note ───────────────────────────────────────────────────────
+  addNewPage();
+  const noteText = buildElbowNote(data);
+  for (const rawLine of noteText.split("\n")) {
+    if (y < 60) addNewPage();
+    if (rawLine === "") { y -= 7; continue; }
+    const isHeader = rawLine===rawLine.toUpperCase() && rawLine.trim().length>0 && !rawLine.includes(":") && rawLine.trim().length<80;
+    const isBullet = rawLine.startsWith("  ");
+    if (isHeader) {
+      y -= 4;
+      page.drawRectangle({ x:L-4, y:y-3, width:R_edge-L+8, height:14, color:rgb(0.11,0.11,0.11) });
+      page.drawRectangle({ x:L-4, y:y-3, width:3, height:14, color:LIME_R });
+      page.drawText(san(rawLine.trim()), { x:L+5, y, size:7, font:fontBold, color:LGRAY }); y -= 18;
+    } else {
+      const xOff = isBullet ? L+10 : L;
+      for (const wl of wrapLine(rawLine.trim(), font, 9, R_edge-xOff)) {
+        if (y < 60) addNewPage();
+        page.drawText(san(wl), { x:xOff, y, size:9, font, color:BLACK_R }); y -= 13;
+      }
+    }
+  }
+
+  // Footer on the last page
+  page.drawRectangle({ x:0, y:0, width, height:26, color:DARK_R });
+  page.drawRectangle({ x:0, y:26, width, height:1.5, color:LIME_R });
+  page.drawText(san("TRM  |  Elbow Rehabilitation Testing Tool  --  Session data embedded. Upload to TRM app to restore."), {
+    x:L, y:8, size:6.5, font, color:rgb(0.44,0.44,0.44)
+  });
+  page.drawText(san(`Page ${pageCount}`), {
+    x:R_edge - font.widthOfTextAtSize(`Page ${pageCount}`, 6.5), y:8, size:6.5, font, color:rgb(0.38,0.38,0.38)
+  });
+
+  // Save / share
+  const pdfBytes = await doc.save();
+  const filename  = `TRM_Elbow_${new Date().toISOString().slice(0,10)}.pdf`;
+  const blob      = new Blob([pdfBytes], { type:"application/pdf" });
+  if (mode === "share") {
+    const shareFile = new File([blob], filename, { type:"application/pdf" });
+    if (navigator.canShare && navigator.canShare({ files:[shareFile] })) {
+      try { await navigator.share({ files:[shareFile], title:"TRM Elbow Session PDF" }); }
+      catch(err) { if (err.name !== "AbortError") throw err; }
       return "shared";
     }
     return "share-unsupported";
   }
-  const url=URL.createObjectURL(blob);
-  const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
-  const isSafari=/^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-  if(!isIOS){ const a=document.createElement("a"); a.href=url; a.download=filename; document.body.appendChild(a); a.click(); document.body.removeChild(a); if(isSafari){setTimeout(()=>{window.open(url,"_blank");},100);setTimeout(()=>URL.revokeObjectURL(url),90000);}else{setTimeout(()=>URL.revokeObjectURL(url),30000);} return "downloaded"; }
+  const url = URL.createObjectURL(blob);
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
+  const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+  if (!isIOS) {
+    const a = document.createElement("a"); a.href=url; a.download=filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    if (isSafari) { setTimeout(()=>{ window.open(url,"_blank"); },100); setTimeout(()=>URL.revokeObjectURL(url),90000); }
+    else { setTimeout(()=>URL.revokeObjectURL(url),30000); }
+    return "downloaded";
+  }
   window.open(url,"_blank"); setTimeout(()=>URL.revokeObjectURL(url),60000); return "ios-tab";
 }
 
@@ -645,11 +1057,27 @@ function Tab1({ data:d, setData:setD }) {
 
   return (
     <div>
-      {/* Mobile nav */}
-      <div className="trm-e-mobilenav" style={{ display:"none", overflowX:"auto", gap:6, marginBottom:16, paddingBottom:4, scrollbarWidth:"none", position:"sticky", top:104, zIndex:50, background:"#0a0a0a", paddingTop:10 }}>
+      {/* Mobile bottom nav chip bar */}
+      <div className="trm-e-mobilenav">
         {SECTION_GROUPS.map(g => {
-          const active=activeSection===g.id; const filled=sectionHasData(g,d);
-          return <button key={g.id} onClick={()=>scrollToSection(g.id)} style={{ flexShrink:0, display:"flex", alignItems:"center", padding:"6px 14px", borderRadius:20, background:active?LIME+"22":"#1a1a1a", border:`1.5px solid ${active?LIME:BORDER}`, cursor:"pointer", whiteSpace:"nowrap", position:"relative" }}><span style={{ fontSize:11, fontWeight:800, color:active?LIME:"#777", letterSpacing:"0.07em", textTransform:"uppercase" }}>{g.short}</span>{filled&&<div style={{ position:"absolute", top:3, right:5, width:5, height:5, borderRadius:"50%", background:LIME }} />}</button>;
+          const active = activeSection === g.id;
+          return (
+            <button key={g.id} onClick={() => scrollToSection(g.id)} style={{
+              flex: 1,
+              height: 44,
+              borderRadius: 8,
+              border: active ? "none" : `1px solid ${BORDER}`,
+              background: active ? LIME : "#181818",
+              color: active ? BLACK : MUTED,
+              fontSize: 10,
+              fontWeight: 800,
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+              cursor: "pointer",
+              transition: "background 0.15s, color 0.15s",
+              padding: 0,
+            }}>{g.short}</button>
+          );
         })}
       </div>
 
@@ -1397,7 +1825,7 @@ export default function App() {
   const tabs=[{label:"Testing",sub:"Outcome Measures"},{label:"Comparison",sub:"Progress Tracking"},{label:"RTS",sub:"Pass / Fail Summary"}];
 
   const handleSavePDF=async()=>{ setSaving(true); try{ const r=await saveSessionPDF(data,"download"); if(r==="ios-tab"){setLoadMsg({type:"success",text:"PDF opened in new tab — use Share → Save to Files to save it."});setTimeout(()=>setLoadMsg(null),12000);} }catch(e){setLoadMsg({type:"error",text:"Save failed: "+e.message});setTimeout(()=>setLoadMsg(null),8000);} setSaving(false); };
-  const handleAirDrop=async()=>{ setSaving(true); try{ const r=await saveSessionPDF(data,"share"); if(r==="share-unsupported"){setLoadMsg({type:"error",text:"Sharing not supported in this browser. Use Save PDF instead."});setTimeout(()=>setLoadMsg(null),6000);} }catch(e){setLoadMsg({type:"error",text:"Share failed: "+e.message});setTimeout(()=>setLoadMsg(null),8000);} setSaving(false); };
+  const handleShare=async()=>{ setSaving(true); try{ const r=await saveSessionPDF(data,"share"); if(r==="share-unsupported"){ await saveSessionPDF(data,"download"); } }catch(e){setLoadMsg({type:"error",text:"Share failed. Try Save PDF instead."});setTimeout(()=>setLoadMsg(null),8000);} setSaving(false); };
   const handleFileChange=e=>{ const file=e.target.files[0]; if(!file) return; e.target.value=""; setConfirmModal({open:true,file,fileName:file.name}); };
   const doLoadFile=async()=>{ const file=confirmModal.file; setConfirmModal({open:false,file:null,fileName:""}); await loadSessionPDF(file,sessionData=>{ const label=sessionData.patient?.date||(sessionData.patient?.weeksPostOp?`Wk ${sessionData.patient.weeksPostOp}`:"Previous Session"); setSessions(prev=>{const exists=prev.findIndex(s=>s.label===label);if(exists>=0){const n=[...prev];n[exists]={data:sessionData,label};return n;}return[{data:sessionData,label},...prev].slice(0,5);}); setData(sessionData); setLoadMsg({type:"success",text:`Session loaded — fields restored.`}); setTimeout(()=>setLoadMsg(null),5000); },errMsg=>{setLoadMsg({type:"error",text:errMsg});setTimeout(()=>setLoadMsg(null),6000);}); };
   const handleCompareFile=async e=>{ const file=e.target.files[0]; if(!file) return; e.target.value=""; await loadSessionPDF(file,sessionData=>{ const label=sessionData.patient?.date||(sessionData.patient?.weeksPostOp?`Wk ${sessionData.patient.weeksPostOp}`:"Session"); setSessions(prev=>{const exists=prev.findIndex(s=>s.label===label);if(exists>=0){const n=[...prev];n[exists]={data:sessionData,label};return n;}if(prev.length>=5){setLoadMsg({type:"error",text:"Max 5 comparison sessions."});setTimeout(()=>setLoadMsg(null),5000);return prev;}return[...prev,{data:sessionData,label}];}); setLoadMsg({type:"success",text:`Added ${label} to comparison.`}); setTimeout(()=>setLoadMsg(null),4000); },errMsg=>{setLoadMsg({type:"error",text:errMsg});setTimeout(()=>setLoadMsg(null),6000);}); };
@@ -1436,7 +1864,7 @@ export default function App() {
       </div>
 
       {/* CONTENT */}
-      <div style={{ maxWidth:900, margin:"0 auto", padding:"20px 16px" }}>
+      <div className="trm-e-main-pad" style={{ maxWidth:900, margin:"0 auto", padding:"20px 16px" }}>
         {storageRestored&&<div style={{ marginBottom:20, padding:"12px 18px", borderRadius:10, border:`1px solid ${BLUE}55`, background:BLUE+"12", display:"flex", alignItems:"center", gap:12 }}><span style={{ fontSize:16 }}>💾</span><span style={{ fontSize:12, fontWeight:700, color:BLUE }}>Session auto-restored from your last visit.</span><button onClick={()=>setStorageRestored(false)} style={{ marginLeft:"auto", background:"none", border:"none", color:MUTED, cursor:"pointer", fontSize:16 }}>×</button></div>}
         {loadMsg&&<div style={{ marginBottom:20, padding:"12px 18px", borderRadius:10, border:`1px solid ${loadMsg.type==="success"?LIME+"55":RED_BAD+"55"}`, background:loadMsg.type==="success"?LIME+"12":RED_BAD+"12", display:"flex", alignItems:"center", gap:12 }}><span style={{ fontSize:16 }}>{loadMsg.type==="success"?"✓":"⚠"}</span><span style={{ fontSize:12, fontWeight:700, color:loadMsg.type==="success"?LIME:RED_BAD }}>{loadMsg.text}</span><button onClick={()=>setLoadMsg(null)} style={{ marginLeft:"auto", background:"none", border:"none", color:MUTED, cursor:"pointer", fontSize:16 }}>×</button></div>}
         {activeTab===0&&<Tab1 data={data} setData={setData} />}
@@ -1451,15 +1879,20 @@ export default function App() {
 
       {/* FAB */}
       <div className="trm-e-fab" style={{ position:"fixed", bottom:24, right:24, zIndex:200, display:"flex", alignItems:"center", gap:8 }}>
-        <div style={{ display:"flex", alignItems:"stretch", border:`1px solid ${BORDER}55`, borderRadius:7, overflow:"hidden", boxShadow:"0 1px 6px rgba(0,0,0,0.3)" }}>
-          <button onClick={()=>setNewPtModal(true)} style={{ padding:"7px 9px", background:"rgba(248,113,113,0.04)", color:RED_BAD+"99", border:"none", cursor:"pointer", fontSize:9, fontWeight:800, letterSpacing:"0.07em", textTransform:"uppercase" }}>Reset</button>
-          <div style={{ width:1, background:BORDER+"66", flexShrink:0 }} />
-          <button onClick={()=>fileInputRef.current.click()} style={{ padding:"7px 9px", background:"rgba(255,255,255,0.03)", color:"#666", border:"none", cursor:"pointer", fontSize:9, fontWeight:800, letterSpacing:"0.07em", textTransform:"uppercase" }}>Load</button>
+        <div style={{ display:"flex", alignItems:"stretch", border:"1px solid rgba(255,255,255,0.15)", borderRadius:8, overflow:"hidden", background:"rgba(255,255,255,0.05)", boxShadow:"0 2px 10px rgba(0,0,0,0.5)" }}>
+          <button onClick={()=>setNewPtModal(true)} style={{ padding:"8px 12px", background:"rgba(248,113,113,0.09)", color:"rgba(248,113,113,0.85)", border:"none", cursor:"pointer", fontSize:9, fontWeight:800, letterSpacing:"0.07em", textTransform:"uppercase" }}>Reset</button>
+          <div style={{ width:1, background:"rgba(255,255,255,0.12)", flexShrink:0 }} />
+          <button onClick={()=>fileInputRef.current.click()} style={{ padding:"8px 12px", background:"transparent", color:"rgba(255,255,255,0.55)", border:"none", cursor:"pointer", fontSize:9, fontWeight:800, letterSpacing:"0.07em", textTransform:"uppercase" }}>Load</button>
         </div>
-        <div style={{ display:"flex", alignItems:"stretch", border:`1px solid ${LIME}28`, borderRadius:7, overflow:"hidden", boxShadow:`0 1px 6px ${LIME}0a`, opacity:saving?0.5:1 }}>
-          <button onClick={handleSavePDF} disabled={saving} style={{ padding:"7px 11px", background:LIME+"0c", color:LIME+"cc", border:"none", cursor:saving?"default":"pointer", fontSize:9, fontWeight:800, letterSpacing:"0.07em", textTransform:"uppercase" }}>{saving?"Saving…":"Save PDF"}</button>
-          <div style={{ width:1, background:LIME+"22", flexShrink:0 }} />
-          <button onClick={handleAirDrop} disabled={saving} title="Share / AirDrop" style={{ padding:"7px 9px", background:LIME+"0c", color:LIME+"cc", border:"none", cursor:saving?"default":"pointer", fontSize:12, lineHeight:1, display:"flex", alignItems:"center" }}>⬆</button>
+        <div style={{ display:"flex", alignItems:"stretch", border:`1px solid ${LIME}52`, borderRadius:8, overflow:"hidden", boxShadow:`0 2px 10px ${LIME}14`, background:LIME+"0f", opacity:saving?0.5:1 }}>
+          <button onClick={handleSavePDF} disabled={saving} style={{ padding:"8px 14px", background:"transparent", color:LIME+"f2", border:"none", cursor:saving?"default":"pointer", fontSize:9, fontWeight:800, letterSpacing:"0.07em", textTransform:"uppercase" }}>{saving?"Saving…":"Save PDF"}</button>
+          <div style={{ width:1, background:LIME+"40", flexShrink:0 }} />
+          <button onClick={handleShare} disabled={saving} title="Share / AirDrop" style={{ padding:"6px 10px", background:"transparent", border:"none", cursor:saving?"default":"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="4" y="10" width="16" height="12" rx="2" fill="rgba(56,189,248,0.15)" stroke="rgba(56,189,248,0.9)" strokeWidth="1.5"/>
+              <path d="M12 2V15M12 2L9 5.5M12 2L15 5.5" stroke="rgba(56,189,248,0.9)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
         </div>
       </div>
     </div>
