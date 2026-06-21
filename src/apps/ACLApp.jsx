@@ -3432,6 +3432,30 @@ function sanitizePdf(str) {
     .replace(/[^\x00-\xFF]/g, "?"); // catch-all for any other non-Latin-1 chars
 }
 
+// Renders the TRM SVG wordmark to a PNG Uint8Array for embedding in pdf-lib.
+// The SVG uses fill="currentColor"; we override to white for the dark header.
+async function svgLogoPngBytes(widthPx, heightPx) {
+  const svgSrc = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 867 352" width="${widthPx * 3}" height="${heightPx * 3}" fill="#ffffff" role="img" aria-label="TRM"><path fill-rule="evenodd" d="M541.00,4.00 L495.00,278.50 L546.00,346.50 L561.50,345.50 L593.00,144.50 L650.00,346.50 L697.50,345.50 L785.50,144.50 L786.00,348.50 L863.50,348.50 L859.50,4.00 L776.00,5.00 L685.50,202.00 L623.50,4.00 Z M270.00,4.00 L243.00,348.50 L321.50,347.50 L332.00,212.50 L426.00,348.50 L525.50,348.50 L419.50,207.50 L458.50,185.50 L476.50,166.50 L488.50,145.50 L496.50,115.50 L497.50,84.00 L492.50,61.00 L482.50,42.00 L456.50,19.00 L424.50,7.00 L396.50,4.00 Z M344.00,66.50 L371.50,66.50 L372.00,67.50 L379.50,67.50 L380.00,68.50 L383.50,68.50 L384.00,69.50 L388.50,69.50 L389.00,70.50 L391.50,70.50 L394.00,72.50 L396.50,72.50 L397.00,73.50 L398.50,73.50 L400.00,75.50 L401.50,75.50 L408.00,82.00 L408.00,83.50 L409.00,84.00 L409.00,85.50 L410.00,86.00 L410.00,87.50 L411.00,88.00 L411.00,89.50 L413.00,92.00 L413.00,95.50 L414.00,96.00 L414.00,101.50 L415.00,102.00 L415.00,110.50 L414.00,111.00 L414.00,119.50 L413.00,120.00 L413.00,123.50 L412.00,124.00 L412.00,126.50 L411.00,127.00 L411.00,129.50 L410.00,130.00 L409.00,133.50 L407.00,135.00 L407.00,136.50 L405.00,138.00 L405.00,139.50 L396.50,148.00 L395.00,148.00 L394.50,149.00 L393.00,149.00 L392.50,150.00 L391.00,150.00 L388.50,152.00 L383.00,153.00 L382.50,154.00 L379.00,154.00 L378.50,155.00 L375.00,155.00 L374.50,156.00 L369.00,156.00 L368.50,157.00 L337.00,157.00 L336.50,156.50 L336.50,145.00 L337.50,144.50 L337.50,132.00 L338.50,131.50 L338.50,119.00 L339.50,118.50 L339.50,106.00 L340.50,105.50 L340.50,94.00 L341.50,93.50 L341.50,81.00 L342.50,80.50 L342.50,68.00 Z M9.00,4.00 L4.00,72.50 L85.00,73.00 L64.00,348.50 L141.50,348.50 L163.50,73.00 L245.50,72.50 L250.50,4.00 Z"/></svg>`;
+  const blob = new Blob([svgSrc], { type: "image/svg+xml" });
+  const url = URL.createObjectURL(blob);
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = widthPx * 3;
+      canvas.height = heightPx * 3;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0);
+      canvas.toBlob(pngBlob => {
+        URL.revokeObjectURL(url);
+        pngBlob.arrayBuffer().then(buf => resolve(new Uint8Array(buf)));
+      }, "image/png");
+    };
+    img.onerror = (e) => { URL.revokeObjectURL(url); reject(e); };
+    img.src = url;
+  });
+}
+
 async function saveSessionPDF(data, mode = "download") {
   const { PDFDocument, rgb, StandardFonts } = await getPdfLib();
   const doc = await PDFDocument.create();
@@ -3451,6 +3475,12 @@ async function saveSessionPDF(data, mode = "download") {
   const { width, height } = page.getSize();
   const font     = await doc.embedFont(StandardFonts.Helvetica);
   const fontBold = await doc.embedFont(StandardFonts.HelveticaBold);
+
+  // ── TRM Logo ───────────────────────────────────────────────────────────
+  const LOGO_W = 76; // PDF points  (aspect ≈ 867:352 → height ≈ 31)
+  const LOGO_H = 31;
+  const logoPngBytes = await svgLogoPngBytes(LOGO_W, LOGO_H);
+  const logoImg = await doc.embedPng(logoPngBytes);
 
   // ── Color Palette ──────────────────────────────────────────────────────
   const BLACK_R  = rgb(0.05, 0.05, 0.05);
@@ -3537,8 +3567,8 @@ async function saveSessionPDF(data, mode = "download") {
   page.drawRectangle({ x: 0, y: height - 70, width, height: 70, color: DARK_R });
   // Lime accent stripe at bottom of header
   page.drawRectangle({ x: 0, y: height - 72, width, height: 2, color: LIME_R });
-  // TRM logotype
-  page.drawText(sanitizePdf("TRM"), { x: L, y: height - 48, size: 34, font: fontBold, color: WHITE_R });
+  // TRM SVG wordmark (centered vertically in the 70pt dark header)
+  page.drawImage(logoImg, { x: L, y: height - 51, width: LOGO_W, height: LOGO_H });
   // Vertical rule
   page.drawLine({ start: {x: L + 82, y: height - 16}, end: {x: L + 82, y: height - 62}, thickness: 0.8, color: rgb(0.28, 0.28, 0.28) });
   page.drawText(sanitizePdf("ACL Testing & Outcome Measures"), { x: L + 92, y: height - 34, size: 10, font, color: rgb(0.68, 0.68, 0.68) });
