@@ -575,10 +575,10 @@ function Tab1({ data:d, setData:setD }) {
         <div style={{ fontSize:11,color:MUTED,marginBottom:14,lineHeight:1.6 }}>
           Enter peak force (N) and time to peak force (ms) per side. LSI = involved/uninvolved x 100. Pass: LSI &gt;=90%, TPF asymmetry &lt;10%, Average LSI &gt;90%.
         </div>
-        <DynamoSection label="Hip Abduction" pfR={dyn.abdPFR} pfL={dyn.abdPFL} tpfR={dyn.abdTPFR} tpfL={dyn.abdTPFL} lsi={dynLSIs.abd} tpfAsym={dynTPFAsyms.abd} pfRKey="abdPFR" pfLKey="abdPFL" tpfRKey="abdTPFR" tpfLKey="abdTPFL"/>
-        <DynamoSection label="Hip Adduction" pfR={dyn.addPFR} pfL={dyn.addPFL} tpfR={dyn.addTPFR} tpfL={dyn.addTPFL} lsi={dynLSIs.add} tpfAsym={dynTPFAsyms.add} pfRKey="addPFR" pfLKey="addPFL" tpfRKey="addTPFR" tpfLKey="addTPFL"/>
-        <DynamoSection label="Hip External Rotation" pfR={dyn.erPFR} pfL={dyn.erPFL} tpfR={dyn.erTPFR} tpfL={dyn.erTPFL} lsi={dynLSIs.er} tpfAsym={dynTPFAsyms.er} pfRKey="erPFR" pfLKey="erPFL" tpfRKey="erTPFR" tpfLKey="erTPFL"/>
-        <DynamoSection label="Hip Internal Rotation" pfR={dyn.irPFR} pfL={dyn.irPFL} tpfR={dyn.irTPFR} tpfL={dyn.irTPFL} lsi={dynLSIs.ir} tpfAsym={dynTPFAsyms.ir} pfRKey="irPFR" pfLKey="irPFL" tpfRKey="irTPFR" tpfLKey="irTPFL"/>
+        {DynamoSection({label:"Hip Abduction", pfR:dyn.abdPFR, pfL:dyn.abdPFL, tpfR:dyn.abdTPFR, tpfL:dyn.abdTPFL, lsi:dynLSIs.abd, tpfAsym:dynTPFAsyms.abd, pfRKey:"abdPFR", pfLKey:"abdPFL", tpfRKey:"abdTPFR", tpfLKey:"abdTPFL"})}
+        {DynamoSection({label:"Hip Adduction", pfR:dyn.addPFR, pfL:dyn.addPFL, tpfR:dyn.addTPFR, tpfL:dyn.addTPFL, lsi:dynLSIs.add, tpfAsym:dynTPFAsyms.add, pfRKey:"addPFR", pfLKey:"addPFL", tpfRKey:"addTPFR", tpfLKey:"addTPFL"})}
+        {DynamoSection({label:"Hip External Rotation", pfR:dyn.erPFR, pfL:dyn.erPFL, tpfR:dyn.erTPFR, tpfL:dyn.erTPFL, lsi:dynLSIs.er, tpfAsym:dynTPFAsyms.er, pfRKey:"erPFR", pfLKey:"erPFL", tpfRKey:"erTPFR", tpfLKey:"erTPFL"})}
+        {DynamoSection({label:"Hip Internal Rotation", pfR:dyn.irPFR, pfL:dyn.irPFL, tpfR:dyn.irTPFR, tpfL:dyn.irTPFL, lsi:dynLSIs.ir, tpfAsym:dynTPFAsyms.ir, pfRKey:"irPFR", pfLKey:"irPFL", tpfRKey:"irTPFR", tpfLKey:"irTPFL"})}
         {allDynLSIs.length>0&&(
           <StatBar stats={[
             {label:"Abd LSI",value:dynLSIs.abd?dynLSIs.abd+"%":null,color:lsiColor(dynLSIs.abd)},
